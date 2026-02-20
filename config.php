@@ -6,7 +6,7 @@ define('DATA_DIR',        __DIR__ . '/data/');
 define('IP_RULES_FILE',   DATA_DIR . 'ip_rules.json');
 define('FILES_META_FILE', DATA_DIR . 'files_meta.json');
 define('ACCESS_LOG_FILE', DATA_DIR . 'access_log.json');
-define('ADMIN_PASSWORD',  'admin123');       // ← Change this!
+define('ADMIN_PASSWORD',  'ThisIs-159753');       // ← Change this!
 define('MAX_FILE_SIZE',   100 * 1024 * 1024); // 100 MB
 
 foreach ([UPLOAD_DIR, DATA_DIR] as $dir)
