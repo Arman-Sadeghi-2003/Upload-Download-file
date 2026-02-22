@@ -7,7 +7,7 @@ define('IP_RULES_FILE',   DATA_DIR . 'ip_rules.json');
 define('FILES_META_FILE', DATA_DIR . 'files_meta.json');
 define('ACCESS_LOG_FILE', DATA_DIR . 'access_log.json');
 define('ADMIN_PASSWORD',  'ThisIs-159753');       // ← Change this!
-define('MAX_FILE_SIZE',   100 * 1024 * 1024); // 100 MB
+define('MAX_FILE_SIZE',   500 * 1024 * 1024); // 100 MB
 
 foreach ([UPLOAD_DIR, DATA_DIR] as $dir)
     if (!is_dir($dir)) mkdir($dir, 0755, true);
