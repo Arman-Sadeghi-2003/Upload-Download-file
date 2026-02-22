@@ -4,14 +4,19 @@ header('Content-Type: application/json');
 
 $ip = getClientIP();
 $a  = checkIPAccess($ip);
-if (!$a['allowed'])                              { echo json_encode(['success'=>false,'error'=>'Access denied']); exit; }
-if ($_SERVER['REQUEST_METHOD'] !== 'POST')       { echo json_encode(['success'=>false,'error'=>'POST only']); exit; }
-if (empty($_FILES['file']))                      { echo json_encode(['success'=>false,'error'=>'No file sent']); exit; }
+if (!$a['allowed']) { echo json_encode(['success'=>false,'error'=>'Access denied']); exit; }
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['success'=>false,'error'=>'POST only']); exit; }
+if (empty($_FILES['file']))                { echo json_encode(['success'=>false,'error'=>'No file sent']); exit; }
 
 $f = $_FILES['file'];
-if ($f['error'] !== UPLOAD_ERR_OK)               { echo json_encode(['success'=>false,'error'=>'Upload error '.$f['error']]); exit; }
-if ($f['size'] > MAX_FILE_SIZE)                  { echo json_encode(['success'=>false,'error'=>'File too large (max '.formatBytes(MAX_FILE_SIZE).
-')']); exit; }
+if ($f['error'] !== UPLOAD_ERR_OK) { echo json_encode(['success'=>false,'error'=>'Upload error '.$f['error']]); exit; }
+
+$max = getMaxFileSize();
+if ($f['size'] > $max) {
+    echo json_encode(['success'=>false,'error'=>'File too large (max '.formatBytes($max).')']);
+    exit;
+}
 
 $origName = basename($f['name']);
 $ext      = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
@@ -29,8 +34,9 @@ saveFilesMeta($meta);
 logAccess($ip, 'upload', $origName, true);
 
 echo json_encode(['success'=>true,'file'=>[
-    'id'=>$id,'name'=>$origName,
-    'size'=>formatBytes($f['size']),
-    'date'=>$entry['date'],
-    'icon'=>fileIcon($ext),
+    'id'   => $id,
+    'name' => $origName,
+    'size' => formatBytes($f['size']),
+    'date' => $entry['date'],
+    'icon' => fileIcon($ext),
 ]]);

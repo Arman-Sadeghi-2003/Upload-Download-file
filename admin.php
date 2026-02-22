@@ -9,23 +9,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-/* ── Login Page ─────────────────────────────────────── */
-if (!isAdmin()):
-?>
+// ── Login Page ────────────────────────────────────────────────────────────────
+if (!isAdmin()) { ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Login</title>
   <link rel="stylesheet" href="assets/css/admin.css">
 </head>
 <body class="login-body">
   <div class="login-card">
     <h2>🔐 Admin Login</h2>
-    <?php if (!empty($loginError)): ?>
-      <div class="err"><?= htmlspecialchars($loginError) ?></div>
-    <?php endif; ?>
+    <?php if (!empty($loginError)): ?><div class="err"><?= htmlspecialchars($loginError) ?></div><?php endif; ?>
     <form method="POST">
       <input type="password" name="password" placeholder="Password" autofocus>
       <button type="submit">Login</button>
@@ -33,11 +30,9 @@ if (!isAdmin()):
   </div>
 </body>
 </html>
-<?php
-exit;
-endif;
+<?php exit; }
 
-/* ── Admin Panel ─────────────────────────────────────── */
+// ── Admin Panel ───────────────────────────────────────────────────────────────
 $rules    = loadIPRules();
 $files    = loadFilesMeta();
 $clientIP = getClientIP();
@@ -47,43 +42,39 @@ $mode     = $rules['mode'] ?? 'blacklist';
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Admin Panel — File Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Panel – File Hub</title>
   <link rel="stylesheet" href="assets/css/admin.css">
 </head>
 <body>
-
 <header>
   <h1>⚙️ Admin Panel</h1>
   <div class="hdr-right">
-    <span class="badge">🌐 <?= htmlspecialchars($clientIP) ?></span>
-    <a href="index.php" class="link-btn">📁 Hub</a>
-    <form method="POST" style="margin:0;">
-      <button name="logout" class="link-btn logout-btn">🚪 Logout</button>
+    <span class="badge"><?= htmlspecialchars($clientIP) ?></span>
+    <a href="index.php" class="link-btn">Hub</a>
+    <form method="POST" style="margin:0">
+      <button name="logout" class="link-btn logout-btn">Logout</button>
     </form>
   </div>
 </header>
 
 <div class="tabs">
-  <div class="tab active" data-tab="global">🌍 Global Rules</div>
-  <div class="tab" data-tab="files">📄 Per-File Rules</div>
-  <div class="tab" data-tab="manager">🗂 File Manager</div>
-  <div class="tab" data-tab="logs">📋 Access Logs</div>
+  <div class="tab active" data-tab="global">Global Rules</div>
+  <div class="tab" data-tab="files">Per-File Rules</div>
+  <div class="tab" data-tab="manager">File Manager</div>
+  <div class="tab" data-tab="logs">Access Logs</div>
 </div>
 
 <div class="container">
 
-  <!-- ══ GLOBAL RULES ══ -->
+  <!-- GLOBAL RULES -->
   <div class="panel active" id="tab-global">
+
     <div class="card">
-      <div class="card-title">🔧 Access Mode</div>
+      <div class="card-title">Access Mode</div>
       <div class="mode-row">
-        <button class="mode-btn <?= $mode==='blacklist'?'active-bl':'' ?>" id="btnBlacklist" onclick="setMode('blacklist')">
-          🚫 Blacklist Mode
-        </button>
-        <button class="mode-btn <?= $mode==='whitelist'?'active-wl':'' ?>" id="btnWhitelist" onclick="setMode('whitelist')">
-          ✅ Whitelist Mode
-        </button>
+        <button class="mode-btn <?= $mode==='blacklist'?'active-bl':'' ?>" id="btnBlacklist" onclick="setMode('blacklist')">🚫 Blacklist Mode</button>
+        <button class="mode-btn <?= $mode==='whitelist'?'active-wl':'' ?>" id="btnWhitelist" onclick="setMode('whitelist')">✅ Whitelist Mode</button>
       </div>
       <div class="mode-hint" id="modeHint">
         <?= $mode==='blacklist'
@@ -93,9 +84,18 @@ $mode     = $rules['mode'] ?? 'blacklist';
     </div>
 
     <div class="card">
-      <div class="card-title">➕ Add Global IP Rule</div>
+      <div class="card-title">Max Upload Size</div>
       <div class="input-row">
-        <input type="text" id="globalIPInput" placeholder="IP, CIDR (192.168.1.0/24), or wildcard (192.168.*.*)">
+        <input type="number" id="maxUploadMB" min="1" step="1" placeholder="Size in MB (e.g. 100)">
+        <button class="btn btn-primary" onclick="saveMaxUpload()">Save</button>
+      </div>
+      <div class="mode-hint" id="maxUploadHint"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Add Global IP Rule</div>
+      <div class="input-row">
+        <input type="text" id="globalIPInput" placeholder="IP, CIDR (192.168.1.0/24), or wildcard (192.168.*)">
         <button class="btn btn-primary" onclick="addGlobalIP()">Add IP</button>
       </div>
       <div class="ip-tags" id="globalTags">
@@ -109,15 +109,16 @@ $mode     = $rules['mode'] ?? 'blacklist';
         <?php endforeach; endif; ?>
       </div>
     </div>
+
   </div>
 
-  <!-- ══ PER-FILE RULES ══ -->
+  <!-- PER-FILE RULES -->
   <div class="panel" id="tab-files">
     <?php if (empty($files)): ?>
       <div class="empty">No files uploaded yet.</div>
     <?php else: foreach ($files as $f):
-      $ext       = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-      $fileRules = $rules['files'][$f['id']] ?? ['allowed'=>[],'denied'=>[]];
+        $ext       = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+        $fileRules = $rules['files'][$f['id']] ?? ['allowed'=>[],'denied'=>[]];
     ?>
       <div class="adm-file" id="af-<?= $f['id'] ?>">
         <div class="adm-file-header">
@@ -127,34 +128,36 @@ $mode     = $rules['mode'] ?? 'blacklist';
             <div class="adm-file-meta"><?= formatBytes($f['size']) ?> &bull; <?= $f['date'] ?> &bull; <?= htmlspecialchars($f['uploader']) ?></div>
           </div>
           <div class="adm-file-actions">
-            <button class="btn btn-primary btn-sm" onclick="toggleFileRules('<?= $f['id'] ?>')">🔒 Rules</button>
+            <button class="btn btn-primary btn-sm" onclick="toggleFileRules('<?= $f['id'] ?>')">Rules</button>
           </div>
         </div>
-
         <div class="file-rules-section" id="frs-<?= $f['id'] ?>">
-          <div class="rules-sub">✅ Allowed IPs</div>
+          <div class="rules-sub">Allowed IPs</div>
           <div class="input-row">
             <input type="text" id="fip-allowed-<?= $f['id'] ?>" placeholder="IP / CIDR / wildcard">
-            <button class="btn btn-primary btn-sm" onclick="addFileRule('<?= $f['id'] ?>','allowed')">+ Allow</button>
+            <button class="btn btn-primary btn-sm" onclick="addFileRule('<?= $f['id'] ?>','allowed')">Allow</button>
           </div>
           <div class="ip-tags" id="ftags-allowed-<?= $f['id'] ?>">
-            <?php if (empty($fileRules['allowed'])): ?><span class="no-tags">None</span>
+            <?php if (empty($fileRules['allowed'])): ?>
+              <span class="no-tags">None</span>
             <?php else: foreach ($fileRules['allowed'] as $rip): ?>
-              <div class="ip-tag"><?= htmlspecialchars($rip) ?>
+              <div class="ip-tag">
+                <?= htmlspecialchars($rip) ?>
                 <span class="rm" onclick="removeFileRule('<?= $f['id'] ?>','allowed','<?= htmlspecialchars($rip) ?>')">✕</span>
               </div>
             <?php endforeach; endif; ?>
           </div>
-
-          <div class="rules-sub mt">🚫 Denied IPs</div>
+          <div class="rules-sub mt">Denied IPs</div>
           <div class="input-row">
             <input type="text" id="fip-denied-<?= $f['id'] ?>" placeholder="IP / CIDR / wildcard">
-            <button class="btn btn-danger btn-sm" onclick="addFileRule('<?= $f['id'] ?>','denied')">+ Deny</button>
+            <button class="btn btn-danger btn-sm" onclick="addFileRule('<?= $f['id'] ?>','denied')">Deny</button>
           </div>
           <div class="ip-tags" id="ftags-denied-<?= $f['id'] ?>">
-            <?php if (empty($fileRules['denied'])): ?><span class="no-tags">None</span>
+            <?php if (empty($fileRules['denied'])): ?>
+              <span class="no-tags">None</span>
             <?php else: foreach ($fileRules['denied'] as $rip): ?>
-              <div class="ip-tag"><?= htmlspecialchars($rip) ?>
+              <div class="ip-tag">
+                <?= htmlspecialchars($rip) ?>
                 <span class="rm" onclick="removeFileRule('<?= $f['id'] ?>','denied','<?= htmlspecialchars($rip) ?>')">✕</span>
               </div>
             <?php endforeach; endif; ?>
@@ -164,19 +167,19 @@ $mode     = $rules['mode'] ?? 'blacklist';
     <?php endforeach; endif; ?>
   </div>
 
-  <!-- ══ FILE MANAGER ══ -->
+  <!-- FILE MANAGER -->
   <div class="panel" id="tab-manager">
     <?php if (empty($files)): ?>
       <div class="empty">No files uploaded yet.</div>
     <?php else: foreach ($files as $f):
-      $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
     ?>
       <div class="adm-file" id="mf-<?= $f['id'] ?>">
         <div class="adm-file-header">
           <div class="adm-file-icon"><?= fileIcon($ext) ?></div>
           <div class="adm-file-info">
             <div class="adm-file-name"><?= htmlspecialchars($f['name']) ?></div>
-            <div class="adm-file-meta"><?= formatBytes($f['size']) ?> &bull; <?= $f['date'] ?> &bull; By: <?= htmlspecialchars($f['uploader']) ?></div>
+            <div class="adm-file-meta"><?= formatBytes($f['size']) ?> &bull; <?= $f['date'] ?> &bull; By <?= htmlspecialchars($f['uploader']) ?></div>
           </div>
           <div class="adm-file-actions">
             <a href="download.php?id=<?= urlencode($f['id']) ?>" class="btn btn-primary btn-sm">⬇</a>
@@ -187,18 +190,16 @@ $mode     = $rules['mode'] ?? 'blacklist';
     <?php endforeach; endif; ?>
   </div>
 
-  <!-- ══ LOGS ══ -->
+  <!-- LOGS -->
   <div class="panel" id="tab-logs">
     <div class="card log-card">
       <div class="log-header">
-        <span class="card-title">Recent Access Log</span>
-        <button class="btn btn-primary btn-sm" onclick="loadLogs()">🔄 Refresh</button>
+        <span class="card-title">Recent Access Logs</span>
+        <button class="btn btn-primary btn-sm" onclick="loadLogs()">Refresh</button>
       </div>
       <div class="log-scroll">
         <table class="log-table">
-          <thead>
-            <tr><th>Time</th><th>IP</th><th>Action</th><th>File</th><th>Result</th></tr>
-          </thead>
+          <thead><tr><th>Time</th><th>IP</th><th>Action</th><th>File</th><th>Result</th></tr></thead>
           <tbody id="logBody">
             <tr><td colspan="5" class="log-empty">Click Refresh to load logs</td></tr>
           </tbody>

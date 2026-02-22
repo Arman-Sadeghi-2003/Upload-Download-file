@@ -76,6 +76,18 @@ switch ($action) {
         echo json_encode(['success'=>true,'logs'=>array_reverse($log)]);
         break;
 
+    case 'get_settings':
+        echo json_encode(['success'=>true,'maxFileSize'=>getMaxFileSize()]);
+        break;
+
+    case 'set_max_file_size':
+        $bytes = (int)($_POST['bytes'] ?? 0);
+        $s = loadSettings();
+        $s['maxFileSize'] = $bytes;
+        saveSettings($s);
+        echo json_encode(['success'=>true,'maxFileSize'=>getMaxFileSize()]);
+        break;
+
     default:
         echo json_encode(['success'=>false,'error'=>'Unknown action']);
 }

@@ -17,8 +17,7 @@ async function api(params) {
 }
 
 const esc = s => String(s)
-  .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 // ── Tab Switching ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
@@ -32,15 +31,11 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
 async function setMode(mode) {
   const r = await api({ action: 'set_mode', mode });
   if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
-
-  document.getElementById('btnBlacklist').className =
-    'mode-btn' + (mode === 'blacklist' ? ' active-bl' : '');
-  document.getElementById('btnWhitelist').className =
-    'mode-btn' + (mode === 'whitelist' ? ' active-wl' : '');
+  document.getElementById('btnBlacklist').className = 'mode-btn' + (mode === 'blacklist' ? ' active-bl' : '');
+  document.getElementById('btnWhitelist').className = 'mode-btn' + (mode === 'whitelist' ? ' active-wl' : '');
   document.getElementById('modeHint').innerHTML = mode === 'blacklist'
     ? '🚫 <strong>Blacklist:</strong> Everyone can access <em>unless</em> their IP is blocked.'
     : '✅ <strong>Whitelist:</strong> Only listed IPs can access. All others are denied.';
-
   showToast(`Mode set to ${mode}`);
 }
 
@@ -49,111 +44,108 @@ async function addGlobalIP() {
   const inp = document.getElementById('globalIPInput');
   const ip  = inp.value.trim();
   if (!ip) { showToast('Enter an IP first', 'err'); return; }
-
   const r = await api({ action: 'add_global', ip });
   if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
-
   const tags  = document.getElementById('globalTags');
   const noTag = document.getElementById('noGlobalTags');
   if (noTag) noTag.remove();
-
   const key = btoa(unescape(encodeURIComponent(ip))).replace(/[^a-zA-Z0-9]/g, '');
   if (!document.getElementById('gtag-' + key)) {
-    tags.insertAdjacentHTML('beforeend', `
-      <div class="ip-tag" id="gtag-${key}">
-        ${esc(ip)}
-        <span class="rm" onclick="removeGlobalIP('${esc(ip)}')">✕</span>
-      </div>`);
+    tags.insertAdjacentHTML('beforeend',
+      `<div class="ip-tag" id="gtag-${key}">${esc(ip)}<span class="rm" onclick="removeGlobalIP('${esc(ip)}')">✕</span></div>`);
   }
   inp.value = '';
-  showToast(`✅ ${ip} added`);
+  showToast('IP added');
 }
 
 async function removeGlobalIP(ip) {
   const r = await api({ action: 'remove_global', ip });
   if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
-
   const key = btoa(unescape(encodeURIComponent(ip))).replace(/[^a-zA-Z0-9]/g, '');
   document.getElementById('gtag-' + key)?.remove();
-
-  const tags = document.getElementById('globalTags');
-  if (!tags.querySelector('.ip-tag'))
-    tags.insertAdjacentHTML('beforeend', '<span class="no-tags" id="noGlobalTags">No IPs added yet.</span>');
-
-  showToast(`Removed ${ip}`);
+  if (!document.querySelector('#globalTags .ip-tag'))
+    document.getElementById('globalTags').innerHTML = '<span class="no-tags" id="noGlobalTags">No IPs added yet.</span>';
+  showToast('IP removed');
 }
 
 // ── Per-File Rules ────────────────────────────────────────────────────────────
 function toggleFileRules(fileId) {
-  document.getElementById('frs-' + fileId).classList.toggle('open');
+  const el = document.getElementById('frs-' + fileId);
+  el.style.display = el.style.display === 'block' ? 'none' : 'block';
 }
 
 async function addFileRule(fileId, type) {
   const inp = document.getElementById(`fip-${type}-${fileId}`);
   const ip  = inp.value.trim();
   if (!ip) { showToast('Enter an IP first', 'err'); return; }
-
   const r = await api({ action: 'add_file_rule', file_id: fileId, ip, type });
   if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
-
-  const container = document.getElementById(`ftags-${type}-${fileId}`);
-  container.querySelector('.no-tags')?.remove();
-  container.insertAdjacentHTML('beforeend', `
-    <div class="ip-tag">
-      ${esc(ip)}
-      <span class="rm" onclick="removeFileRule('${fileId}','${type}','${esc(ip)}')">✕</span>
-    </div>`);
-
+  const tags = document.getElementById(`ftags-${type}-${fileId}`);
+  tags.querySelector('.no-tags')?.remove();
+  tags.insertAdjacentHTML('beforeend',
+    `<div class="ip-tag">${esc(ip)}<span class="rm" onclick="removeFileRule('${fileId}','${type}','${esc(ip)}')">✕</span></div>`);
   inp.value = '';
-  showToast(`✅ ${ip} → ${type} for this file`);
+  showToast('Rule added');
 }
 
 async function removeFileRule(fileId, type, ip) {
   const r = await api({ action: 'remove_file_rule', file_id: fileId, ip, type });
   if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
-
-  const container = document.getElementById(`ftags-${type}-${fileId}`);
-  container.querySelectorAll('.ip-tag').forEach(tag => {
-    if (tag.textContent.trim().startsWith(ip)) tag.remove();
+  const tags = document.getElementById(`ftags-${type}-${fileId}`);
+  [...tags.querySelectorAll('.ip-tag')].forEach(el => {
+    if (el.textContent.replace('✕','').trim() === ip) el.remove();
   });
-  if (!container.querySelector('.ip-tag'))
-    container.insertAdjacentHTML('beforeend', '<span class="no-tags">None</span>');
-
-  showToast(`Removed ${ip}`);
+  if (!tags.querySelector('.ip-tag'))
+    tags.innerHTML = '<span class="no-tags">None</span>';
+  showToast('Rule removed');
 }
 
-// ── Delete File ───────────────────────────────────────────────────────────────
+// ── File Manager ──────────────────────────────────────────────────────────────
 async function deleteFile(fileId, name) {
-  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-
+  if (!confirm(`Delete "${name}"?`)) return;
   const r = await api({ action: 'delete_file', file_id: fileId });
   if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
-
   document.getElementById('mf-' + fileId)?.remove();
   document.getElementById('af-' + fileId)?.remove();
-  showToast(`🗑 "${name}" deleted`);
+  showToast('File deleted');
 }
 
-// ── Access Logs ───────────────────────────────────────────────────────────────
+// ── Logs ──────────────────────────────────────────────────────────────────────
 async function loadLogs() {
-  const body = document.getElementById('logBody');
-  body.innerHTML = '<tr><td colspan="5" class="log-empty">Loading...</td></tr>';
-
   const r = await api({ action: 'get_logs' });
-  if (!r.success) {
-    body.innerHTML = '<tr><td colspan="5" class="log-empty" style="color:var(--red)">Failed to load</td></tr>';
-    return;
-  }
-  if (!r.logs.length) {
-    body.innerHTML = '<tr><td colspan="5" class="log-empty">No logs yet.</td></tr>';
-    return;
-  }
-  body.innerHTML = r.logs.map(l => `
-    <tr>
+  if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
+  const tbody = document.getElementById('logBody');
+  if (!r.logs.length) { tbody.innerHTML = '<tr><td colspan="5" class="log-empty">No logs yet.</td></tr>'; return; }
+  tbody.innerHTML = r.logs.map(l =>
+    `<tr>
       <td>${esc(l.t)}</td>
       <td>${esc(l.ip)}</td>
       <td>${esc(l.action)}</td>
       <td>${esc(l.file)}</td>
-      <td class="${l.ok ? 'log-ok' : 'log-den'}">${l.ok ? '✅ Granted' : '🚫 Denied'}</td>
-    </tr>`).join('');
+      <td class="${l.ok ? 'log-ok' : 'log-deny'}">${l.ok ? '✅' : '🚫'}</td>
+    </tr>`
+  ).join('');
 }
+
+// ── Max Upload Size ───────────────────────────────────────────────────────────
+async function loadMaxUpload() {
+  const r = await fetch('api.php?action=get_settings');
+  const j = await r.json();
+  if (!j.success) return;
+  const mb = Math.floor(j.maxFileSize / (1024 * 1024));
+  document.getElementById('maxUploadMB').value = mb;
+  document.getElementById('maxUploadHint').textContent = `Current limit: ${mb} MB`;
+}
+
+async function saveMaxUpload() {
+  const mb = parseInt(document.getElementById('maxUploadMB').value || '0', 10);
+  if (!mb || mb < 1) { showToast('Enter a valid size in MB', 'err'); return; }
+  const r = await api({ action: 'set_max_file_size', bytes: String(mb * 1024 * 1024) });
+  if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
+  const newMb = Math.floor(r.maxFileSize / (1024 * 1024));
+  document.getElementById('maxUploadHint').textContent = `Saved! Current limit: ${newMb} MB`;
+  showToast('Max upload size saved');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadMaxUpload();
