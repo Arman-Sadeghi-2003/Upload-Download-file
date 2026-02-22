@@ -4,7 +4,7 @@
 
 ![PHP](https://img.shields.io/badge/PHP-8.0+-777BB4?style=flat&logo=php&logoColor=white)
 ![IIS](https://img.shields.io/badge/IIS-Windows-0078D6?style=flat&logo=windows&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat)
+![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue?style=flat)
 
 ---
 
