@@ -64,12 +64,23 @@ function checkIPAccess(string $ip, ?string $fileId = null): array {
     $mode  = $rules['mode'] ?? 'blacklist';
 
     if ($fileId && isset($rules['files'][$fileId])) {
-        foreach ($rules['files'][$fileId]['denied']  ?? [] as $r)
+        $fileRules   = $rules['files'][$fileId];
+        $deniedList  = $fileRules['denied']  ?? [];
+        $allowedList = $fileRules['allowed'] ?? [];
+
+        // Always check denied first
+        foreach ($deniedList as $r)
             if (ipMatchesRule($ip, $r)) return ['allowed'=>false,'reason'=>'Blocked for this file'];
-        foreach ($rules['files'][$fileId]['allowed'] ?? [] as $r)
-            if (ipMatchesRule($ip, $r)) return ['allowed'=>true, 'reason'=>'Allowed for this file'];
+
+        // If there are allowed IPs, act as whitelist for this file
+        if (!empty($allowedList)) {
+            foreach ($allowedList as $r)
+                if (ipMatchesRule($ip, $r)) return ['allowed'=>true,'reason'=>'Allowed for this file'];
+            return ['allowed'=>false,'reason'=>'Not in allowed list for this file'];
+        }
     }
 
+    // No per-file rules → fall through to global rules
     $global = $rules['global'] ?? [];
     if ($mode === 'whitelist') {
         if (in_array($ip, ['127.0.0.1','::1']))
@@ -85,6 +96,7 @@ function checkIPAccess(string $ip, ?string $fileId = null): array {
         if (ipMatchesRule($ip, $r)) return ['allowed'=>false,'reason'=>'Globally blacklisted'];
     return ['allowed'=>true,'reason'=>'OK'];
 }
+
 
 // ── Data Helpers ──────────────────────────────────────────────────────────────
 function loadIPRules(): array {
