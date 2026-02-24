@@ -88,6 +88,33 @@ switch ($action) {
         echo json_encode(['success'=>true,'maxFileSize'=>getMaxFileSize()]);
         break;
 
+    case 'add_visible_to':
+        $fileId = $_POST['file_id'] ?? '';
+        $ip     = trim($_POST['ip'] ?? '');
+        if (!$fileId || !$ip) { echo json_encode(['success'=>false,'error'=>'Missing params']); break; }
+        $rules = loadIPRules();
+        if (!isset($rules['files'][$fileId]))
+            $rules['files'][$fileId] = ['allowed'=>[],'denied'=>[],'visible_to'=>[]];
+        if (!isset($rules['files'][$fileId]['visible_to']))
+            $rules['files'][$fileId]['visible_to'] = [];
+        if (!in_array($ip, $rules['files'][$fileId]['visible_to']))
+            $rules['files'][$fileId]['visible_to'][] = $ip;
+        saveIPRules($rules);
+        echo json_encode(['success'=>true]);
+        break;
+
+    case 'remove_visible_to':
+        $fileId = $_POST['file_id'] ?? '';
+        $ip     = trim($_POST['ip'] ?? '');
+        $rules  = loadIPRules();
+        if (isset($rules['files'][$fileId]['visible_to']))
+            $rules['files'][$fileId]['visible_to'] = array_values(
+                array_filter($rules['files'][$fileId]['visible_to'], fn($r) => $r !== $ip)
+            );
+        saveIPRules($rules);
+        echo json_encode(['success'=>true]);
+        break;
+
     default:
         echo json_encode(['success'=>false,'error'=>'Unknown action']);
 }

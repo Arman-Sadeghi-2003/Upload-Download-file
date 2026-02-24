@@ -131,7 +131,43 @@ $mode     = $rules['mode'] ?? 'blacklist';
             <button class="btn btn-primary btn-sm" onclick="toggleFileRules('<?= $f['id'] ?>')">Rules</button>
           </div>
         </div>
+        
         <div class="file-rules-section" id="frs-<?= $f['id'] ?>">
+          <!-- ── Visibility IPs ───────────────────────────────────────── -->
+          <div class="rule-group" style="margin-top:14px;">
+              <strong>👁 Visibility IPs</strong>
+              <small style="display:block;color:var(--muted);margin-bottom:6px;">
+                  If any IP is added here, <em>only those IPs</em> will see this file
+                  in the hub index. Leave empty to show to everyone.
+              </small>
+              <div class="ip-tags" id="vip-tags-<?= $f['id'] ?>">
+                  <?php
+                  $visibleTo = $rules['files'][$f['id']]['visible_to'] ?? [];
+                  if (empty($visibleTo)): ?>
+                      <span class="muted-tag" id="vip-no-<?= $f['id'] ?>">— visible to all —</span>
+                  <?php else: foreach ($visibleTo as $vip):
+                      $vKey = preg_replace('/[^a-zA-Z0-9]/', '', base64_encode($vip)); ?>
+                      <span class="ip-tag" id="vip-tag-<?= $f['id'] ?>-<?= $vKey ?>">
+                          <?= htmlspecialchars($vip) ?>
+                          <button onclick="removeVisibleTo(
+                              '<?= $f['id'] ?>',
+                              '<?= htmlspecialchars($vip, ENT_QUOTES) ?>',
+                              'vip-tag-<?= $f['id'] ?>-<?= $vKey ?>'
+                          )">✕</button>
+
+                      </span>
+                  <?php endforeach; endif; ?>
+              </div>
+              <div class="input-row" style="margin-top:6px;">
+                  <input type="text"
+                        id="vip-input-<?= $f['id'] ?>"
+                        placeholder="IP to add to visibility…">
+                  <button class="btn btn-primary btn-sm"
+                          onclick="addVisibleTo('<?= $f['id'] ?>')">+ Add</button>
+              </div>
+
+          </div>
+
           <div class="rules-sub">Allowed IPs</div>
           <div class="input-row">
             <input type="text" id="fip-allowed-<?= $f['id'] ?>" placeholder="IP / CIDR / wildcard">

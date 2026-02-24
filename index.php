@@ -2,7 +2,10 @@
 require 'config.php';
 
 $clientIP = getClientIP();
-$files    = loadFilesMeta();
+$allFiles = loadFilesMeta();
+$files    = array_values(
+    array_filter($allFiles, fn($f) => checkFileVisibility($clientIP, $f['id']))
+);
 $access   = checkIPAccess($clientIP);
 ?>
 <!DOCTYPE html>

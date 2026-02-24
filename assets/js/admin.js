@@ -147,5 +147,36 @@ async function saveMaxUpload() {
   showToast('Max upload size saved');
 }
 
+// ── Per-File Visibility IPs ───────────────────────────────────────────────────
+async function addVisibleTo(fileId) {
+    const inp = document.getElementById('vip-input-' + fileId);
+    const ip  = inp.value.trim();
+    if (!ip) { showToast('Enter an IP first', 'err'); return; }
+    const r = await api({ action: 'add_visible_to', file_id: fileId, ip });
+    if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
+    inp.value = '';
+    const tags  = document.getElementById('vip-tags-' + fileId);
+    const noTag = document.getElementById('vip-no-' + fileId);
+    if (noTag) noTag.remove();
+    const key   = btoa(unescape(encodeURIComponent(ip))).replace(/[^a-zA-Z0-9]/g, '');
+    const tagId = `vip-tag-${fileId}-${key}`;
+    if (!document.getElementById(tagId))
+        tags.insertAdjacentHTML('beforeend',
+            `<span class="ip-tag" id="${tagId}">${esc(ip)} ` +
+            `<button onclick="removeVisibleTo('${esc(fileId)}','${esc(ip)}','${tagId}')">✕</button></span>`);
+    showToast(`👁 ${ip} added to visibility list`);
+}
+
+async function removeVisibleTo(fileId, ip, tagId) {
+    const r = await api({ action: 'remove_visible_to', file_id: fileId, ip });
+    if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
+    document.getElementById(tagId)?.remove();
+    const tags = document.getElementById('vip-tags-' + fileId);
+    if (!tags.querySelector('.ip-tag'))
+        tags.insertAdjacentHTML('beforeend',
+            `<span class="muted-tag" id="vip-no-${fileId}">— visible to all —</span>`);
+    showToast(`👁 ${ip} removed from visibility list`);
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadMaxUpload();

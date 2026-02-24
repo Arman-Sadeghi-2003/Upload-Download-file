@@ -27,10 +27,21 @@ if (!move_uploaded_file($f['tmp_name'], UPLOAD_DIR . $saveName)) {
     echo json_encode(['success'=>false,'error'=>'Failed to save file']); exit;
 }
 
+// Save file metadata
 $entry = ['id'=>$id,'name'=>$origName,'saveName'=>$saveName,'size'=>$f['size'],'ext'=>$ext,'date'=>date('Y-m-d H:i'),'uploader'=>$ip];
 $meta  = loadFilesMeta();
 array_unshift($meta, $entry);
 saveFilesMeta($meta);
+
+// Auto-restrict access + visibility: admin (::1 / 127.0.0.1) + uploader only
+$rules     = loadIPRules();
+$allowed   = ['::1'];
+if (!in_array($ip, $allowed)) $allowed[] = $ip;
+// visible_to: only uploader (+ localhost) can see this file in the hub index by default
+$visibleTo = array_values(array_unique(['::1', '127.0.0.1', $ip]));
+$rules['files'][$id] = ['allowed' => $allowed, 'denied' => [], 'visible_to' => $visibleTo];
+saveIPRules($rules);
+
 logAccess($ip, 'upload', $origName, true);
 
 echo json_encode(['success'=>true,'file'=>[

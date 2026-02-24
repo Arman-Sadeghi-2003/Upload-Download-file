@@ -149,3 +149,14 @@ function fileIcon(string $ext): string {
 function isAdmin(): bool {
     return isset($_SESSION['hub_admin']) && $_SESSION['hub_admin'] === true;
 }
+
+// Returns true if the IP can SEE this file in the hub listing
+function checkFileVisibility(string $ip, string $fileId): bool {
+    $rules     = loadIPRules();
+    if (!isset($rules['files'][$fileId])) return true;
+    $visibleTo = $rules['files'][$fileId]['visible_to'] ?? [];
+    if (empty($visibleTo)) return true;          // no restriction → show to all
+    foreach ($visibleTo as $r)
+        if (ipMatchesRule($ip, $r)) return true;
+    return false;
+}
