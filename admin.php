@@ -140,6 +140,15 @@ $mode     = $rules['mode'] ?? 'blacklist';
                   If any IP is added here, <em>only those IPs</em> will see this file
                   in the hub index. Leave empty to show to everyone.
               </small>
+              
+              <div class="input-row" style="margin-top:6px;">
+                  <input type="text"
+                        id="vip-input-<?= $f['id'] ?>"
+                        placeholder="IP to add to visibility…">
+                  <button class="btn btn-primary btn-sm"
+                          onclick="addVisibleTo('<?= $f['id'] ?>')">+ Add</button>
+              </div>
+
               <div class="ip-tags" id="vip-tags-<?= $f['id'] ?>">
                   <?php
                   $visibleTo = $rules['files'][$f['id']]['visible_to'] ?? [];
@@ -149,23 +158,11 @@ $mode     = $rules['mode'] ?? 'blacklist';
                       $vKey = preg_replace('/[^a-zA-Z0-9]/', '', base64_encode($vip)); ?>
                       <span class="ip-tag" id="vip-tag-<?= $f['id'] ?>-<?= $vKey ?>">
                           <?= htmlspecialchars($vip) ?>
-                          <button onclick="removeVisibleTo(
-                              '<?= $f['id'] ?>',
-                              '<?= htmlspecialchars($vip, ENT_QUOTES) ?>',
-                              'vip-tag-<?= $f['id'] ?>-<?= $vKey ?>'
-                          )">✕</button>
+                          <span class="rm" onclick="removeVisibleTo('<?= $f['id'] ?>','<?= htmlspecialchars($vip, ENT_QUOTES) ?>','vip-tag-<?= $f['id'] ?>-<?= $vKey ?>')">✕</span>
 
                       </span>
                   <?php endforeach; endif; ?>
               </div>
-              <div class="input-row" style="margin-top:6px;">
-                  <input type="text"
-                        id="vip-input-<?= $f['id'] ?>"
-                        placeholder="IP to add to visibility…">
-                  <button class="btn btn-primary btn-sm"
-                          onclick="addVisibleTo('<?= $f['id'] ?>')">+ Add</button>
-              </div>
-
           </div>
 
           <div class="rules-sub">Allowed IPs</div>
