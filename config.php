@@ -8,7 +8,7 @@ define('FILES_META_FILE', DATA_DIR . 'filesmeta.json');
 define('ACCESS_LOG_FILE', DATA_DIR . 'accesslog.json');
 define('SETTINGS_FILE',   DATA_DIR . 'settings.json');
 define('ADMIN_PASSWORD',  'ThisIs-159753'); // Change this!
-define('MAX_FILE_SIZE',    500 * 1024 * 1024); // 500 MB default fallback
+define('MAX_FILE_SIZE',    4 * 1024 * 1024 * 1024); // 4 GB default fallback
 
 foreach ([UPLOAD_DIR, DATA_DIR] as $dir)
     if (!is_dir($dir)) mkdir($dir, 0755, true);

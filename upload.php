@@ -35,10 +35,10 @@ saveFilesMeta($meta);
 
 // Auto-restrict access + visibility: admin (::1) + uploader only
 $rules     = loadIPRules();
-$allowed   = ['::1'];
+$allowed   = ['::1', '192.168.2.100', '192.168.2.101'];
 if (!in_array($ip, $allowed)) $allowed[] = $ip;
 // visible_to: only uploader (+ localhost) can see this file in the hub index by default
-$visibleTo = array_values(array_unique(['::1', $ip]));
+$visibleTo = array_values(array_unique(['::1', '192.168.2.100', '192.168.2.101', $ip]));
 $rules['files'][$id] = ['allowed' => $allowed, 'denied' => [], 'visible_to' => $visibleTo];
 saveIPRules($rules);
 
