@@ -68,6 +68,33 @@ async function removeGlobalIP(ip) {
   showToast('IP removed');
 }
 
+// ── Default IPs for New Uploads ───────────────────────────────────────────────
+function renderDefaultTags(list) {
+  document.getElementById('defaultTags').innerHTML = list.map(ip => {
+    const key = btoa(unescape(encodeURIComponent(ip))).replace(/[^a-zA-Z0-9]/g, '');
+    const rm  = ip === '::1' ? '' : `<span class="rm" onclick="removeDefaultIP('${esc(ip)}')">✕</span>`;
+    return `<div class="ip-tag" id="dtag-${key}">${esc(ip)}${rm}</div>`;
+  }).join('');
+}
+
+async function addDefaultIP() {
+  const inp = document.getElementById('defaultIPInput');
+  const ip  = inp.value.trim();
+  if (!ip) { showToast('Enter an IP first', 'err'); return; }
+  const r = await api({ action: 'add_default_ip', ip });
+  if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
+  renderDefaultTags(r.defaultIPs);
+  inp.value = '';
+  showToast('Default IP added');
+}
+
+async function removeDefaultIP(ip) {
+  const r = await api({ action: 'remove_default_ip', ip });
+  if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
+  renderDefaultTags(r.defaultIPs);
+  showToast('Default IP removed');
+}
+
 // ── Per-File Rules ────────────────────────────────────────────────────────────
 function toggleFileRules(fileId) {
   const el = document.getElementById('frs-' + fileId);

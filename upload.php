@@ -18,6 +18,8 @@ if ($f['size'] > $max) {
     exit;
 }
 
+$isPublic = !empty($_POST['public']);
+
 $origName = basename($f['name']);
 $ext      = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
 $id       = bin2hex(random_bytes(8));
@@ -27,22 +29,24 @@ if (!move_uploaded_file($f['tmp_name'], UPLOAD_DIR . $saveName)) {
     echo json_encode(['success'=>false,'error'=>'Failed to save file']); exit;
 }
 
-// Save file metadata
-$entry = ['id'=>$id,'name'=>$origName,'saveName'=>$saveName,'size'=>$f['size'],'ext'=>$ext,'date'=>date('Y-m-d H:i'),'uploader'=>$ip];
+// Save file metadata — public uploads are recorded anonymously
+$entry = ['id'=>$id,'name'=>$origName,'saveName'=>$saveName,'size'=>$f['size'],'ext'=>$ext,'date'=>date('Y-m-d H:i'),'uploader'=>$isPublic ? 'public' : $ip];
 $meta  = loadFilesMeta();
 array_unshift($meta, $entry);
 saveFilesMeta($meta);
 
-// Auto-restrict access + visibility: admin (::1) + uploader only
-$rules     = loadIPRules();
-$allowed   = ['::1', '192.168.2.100', '192.168.2.101'];
-if (!in_array($ip, $allowed)) $allowed[] = $ip;
-// visible_to: only uploader (+ localhost) can see this file in the hub index by default
-$visibleTo = array_values(array_unique(['::1', '192.168.2.100', '192.168.2.101', $ip]));
-$rules['files'][$id] = ['allowed' => $allowed, 'denied' => [], 'visible_to' => $visibleTo];
-saveIPRules($rules);
+if (!$isPublic) {
+    // Auto-restrict access + visibility to the admin-managed default IPs + uploader
+    $rules   = loadIPRules();
+    $allowed = array_values(array_unique(array_merge(getDefaultIPs(), [$ip])));
+    // visible_to matches allowed: only those IPs see this file in the hub index
+    $rules['files'][$id] = ['allowed' => $allowed, 'denied' => [], 'visible_to' => $allowed];
+    saveIPRules($rules);
+}
+// Public uploads get no per-file rules at all, so checkFileVisibility() shows the
+// file to everyone and checkIPAccess() falls through to the global rules.
 
-logAccess($ip, 'upload', $origName, true);
+logAccess($ip, $isPublic ? 'upload (public)' : 'upload', $origName, true);
 
 echo json_encode(['success'=>true,'file'=>[
     'id'   => $id,

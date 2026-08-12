@@ -17,7 +17,7 @@ if (!isAdmin()) { ?>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Login</title>
-  <link rel="stylesheet" href="assets/css/admin.css">
+  <link rel="stylesheet" href="assets/css/admin.css?v=<?= @filemtime(__DIR__ . '/assets/css/admin.css') ?>">
 </head>
 <body class="login-body">
   <div class="login-card">
@@ -44,7 +44,7 @@ $mode     = $rules['mode'] ?? 'blacklist';
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Panel – File Hub</title>
-  <link rel="stylesheet" href="assets/css/admin.css">
+  <link rel="stylesheet" href="assets/css/admin.css?v=<?= @filemtime(__DIR__ . '/assets/css/admin.css') ?>">
 </head>
 <body>
 <header>
@@ -90,6 +90,31 @@ $mode     = $rules['mode'] ?? 'blacklist';
         <button class="btn btn-primary" onclick="saveMaxUpload()">Save</button>
       </div>
       <div class="mode-hint" id="maxUploadHint"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Default IPs for New Uploads</div>
+      <div class="mode-hint" style="margin-bottom:10px;">
+        Every <strong>private</strong> upload is automatically restricted to these IPs,
+        plus the uploader's own IP. Public uploads ignore this list entirely.
+        <code>::1</code> is always included so you keep access to every file.
+      </div>
+      <div class="input-row">
+        <input type="text" id="defaultIPInput" placeholder="IP, CIDR (192.168.1.0/24), or wildcard (192.168.*)">
+        <button class="btn btn-primary" onclick="addDefaultIP()">Add IP</button>
+      </div>
+      <div class="ip-tags" id="defaultTags">
+        <?php foreach (getDefaultIPs() as $dip):
+            $dKey  = preg_replace('/[^a-zA-Z0-9]/', '', base64_encode($dip));
+            $isFix = $dip === '::1'; ?>
+          <div class="ip-tag" id="dtag-<?= $dKey ?>">
+            <?= htmlspecialchars($dip) ?>
+            <?php if (!$isFix): ?>
+              <span class="rm" onclick="removeDefaultIP('<?= htmlspecialchars($dip, ENT_QUOTES) ?>')">✕</span>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
+      </div>
     </div>
 
     <div class="card">
@@ -244,6 +269,6 @@ $mode     = $rules['mode'] ?? 'blacklist';
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="assets/js/admin.js"></script>
+<script src="assets/js/admin.js?v=<?= @filemtime(__DIR__ . '/assets/js/admin.js') ?>"></script>
 </body>
 </html>

@@ -13,9 +13,10 @@
 | Feature | Description |
 |---|---|
 | 📤 Upload | Drag & drop or browse — supports large files (MP4, ZIP, etc.) |
-| 📥 Download | Access files from any device on the network |
+| ☁️ Private / 🌍 Public | Two drop zones — restrict an upload to a set of IPs, or share it with everyone |
+| 📥 Download | Access files from any device on the network — resumable, with HTTP Range support |
 | 🌍 IP Control | Whitelist or blacklist IPs globally or per file |
-| 🔐 Admin Panel | Password-protected panel to manage rules and files |
+| 🔐 Admin Panel | Password-protected panel to manage rules, defaults, limits, and files |
 | 📋 Access Logs | See who accessed, downloaded, or was blocked |
 | 🎨 Modern UI | Clean dark theme, no frameworks needed |
 
@@ -74,8 +75,13 @@ start http://localhost:[YOUR_PORT]/
 
 ```php
 define('ADMIN_PASSWORD', 'your_password');         // Change this!
-define('MAX_FILE_SIZE',  500 * 1024 * 1024);       // 500 MB
+define('MAX_FILE_SIZE',  500 * 1024 * 1024);       // 500 MB — fallback only
+define('DEFAULT_ACCESS_IPS', ['::1']);             // Fallback only
 ```
+
+> `MAX_FILE_SIZE` and `DEFAULT_ACCESS_IPS` are only used on a fresh install. Once
+> saved from the admin panel, the live values live in `data/settings.json`.
+> The upload limit is clamped to 1 MB – 5 GB regardless of what is stored.
 
 ### `web.config` (project root)
 
@@ -151,6 +157,15 @@ The admin panel supports three rule formats:
 | **Whitelist** | Only listed IPs allowed, all others denied |
 | **Per-file rules** | Override global rules for a specific file |
 
+### Private vs. public uploads
+
+The hub has two drop zones:
+
+- **☁️ Private** — the file is restricted to the *default IP list* plus the uploader's own IP. Nobody else sees it in the listing or can download it.
+- **🌍 Public** — no per-file restrictions. Everyone the global rules allow can see and download it.
+
+The default IP list is managed in **Admin Panel → Global Rules → Default IPs for New Uploads**. It applies to new private uploads only; existing files keep the rules they already have. `::1` is always in the list so the admin never loses access.
+
 ---
 
 ## 📂 Project Structure
@@ -164,6 +179,8 @@ file-hub/
 ├── api.php             # Admin API endpoints
 ├── admin.php           # Admin panel
 ├── web.config          # IIS configuration
+├── docs/
+│   └── project-overview.md   # Architecture & data model
 ├── assets/
 │   ├── css/
 │   │   ├── style.css   # Hub styles

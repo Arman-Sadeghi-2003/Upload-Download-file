@@ -77,7 +77,25 @@ switch ($action) {
         break;
 
     case 'get_settings':
-        echo json_encode(['success'=>true,'maxFileSize'=>getMaxFileSize()]);
+        echo json_encode(['success'=>true,'maxFileSize'=>getMaxFileSize(),'defaultIPs'=>getDefaultIPs()]);
+        break;
+
+    case 'add_default_ip':
+        $ip = trim($_POST['ip'] ?? '');
+        if (!$ip) { echo json_encode(['success'=>false,'error'=>'No IP provided']); break; }
+        $list   = getDefaultIPs();
+        $list[] = $ip;
+        saveDefaultIPs($list);
+        echo json_encode(['success'=>true,'defaultIPs'=>getDefaultIPs()]);
+        break;
+
+    case 'remove_default_ip':
+        $ip = trim($_POST['ip'] ?? '');
+        if ($ip === '::1') {
+            echo json_encode(['success'=>false,'error'=>'Localhost cannot be removed']); break;
+        }
+        saveDefaultIPs(array_filter(getDefaultIPs(), fn($r) => $r !== $ip));
+        echo json_encode(['success'=>true,'defaultIPs'=>getDefaultIPs()]);
         break;
 
     case 'set_max_file_size':

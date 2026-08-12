@@ -10,12 +10,17 @@ define('SETTINGS_FILE',   DATA_DIR . 'settings.json');
 define('ADMIN_PASSWORD',  'ThisIs-159753'); // Change this!
 define('MAX_FILE_SIZE',    4 * 1024 * 1024 * 1024); // 4 GB default fallback
 
+// Fallback only — the live list is managed from the admin panel and stored in
+// settings.json. Localhost is always kept so the admin can never be locked out
+// of files uploaded by others.
+define('DEFAULT_ACCESS_IPS', ['::1']);
+
 foreach ([UPLOAD_DIR, DATA_DIR] as $dir)
     if (!is_dir($dir)) mkdir($dir, 0755, true);
 
 // ── Settings Helpers ──────────────────────────────────────────────────────────
 function loadSettings(): array {
-    $defaults = ['maxFileSize' => MAX_FILE_SIZE];
+    $defaults = ['maxFileSize' => MAX_FILE_SIZE, 'defaultIPs' => DEFAULT_ACCESS_IPS];
     if (!file_exists(SETTINGS_FILE)) return $defaults;
     $s = json_decode(file_get_contents(SETTINGS_FILE), true);
     return is_array($s) ? array_merge($defaults, $s) : $defaults;
@@ -31,6 +36,23 @@ function getMaxFileSize(): int {
     if ($v < 1 * 1024 * 1024)           $v = 1 * 1024 * 1024;           // min 1 MB
     if ($v > 5 * 1024 * 1024 * 1024)    $v = 5 * 1024 * 1024 * 1024;   // max 5 GB
     return $v;
+}
+
+// Default IPs granted access + visibility on every new private upload.
+// '::1' is always included so the admin keeps reach over every file.
+function getDefaultIPs(): array {
+    $s    = loadSettings();
+    $list = is_array($s['defaultIPs'] ?? null) ? $s['defaultIPs'] : DEFAULT_ACCESS_IPS;
+    $list = array_filter(array_map('trim', $list), fn($v) => $v !== '');
+    return array_values(array_unique(array_merge(['::1'], $list)));
+}
+
+function saveDefaultIPs(array $list): void {
+    $s = loadSettings();
+    $s['defaultIPs'] = array_values(array_unique(
+        array_filter(array_map('trim', $list), fn($v) => $v !== '')
+    ));
+    saveSettings($s);
 }
 
 // ── IP Helpers ────────────────────────────────────────────────────────────────

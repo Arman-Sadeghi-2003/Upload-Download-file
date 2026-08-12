@@ -14,7 +14,7 @@ $access   = checkIPAccess($clientIP);
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>File Hub</title>
-  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/style.css?v=<?= @filemtime(__DIR__ . '/assets/css/style.css') ?>">
 </head>
 <body>
 <header>
@@ -35,9 +35,17 @@ $access   = checkIPAccess($clientIP);
     <div class="drop-zone" id="dropZone">
       <div class="dz-icon">☁️</div>
       <p>Drag &amp; drop files here, or <span onclick="document.getElementById('fileInput').click()">browse</span></p>
-      <p class="dz-hint">Max <?= formatBytes(getMaxFileSize()) ?> per file</p>
+      <p class="dz-hint">Private — only you and the admin can see it. Max <?= formatBytes(getMaxFileSize()) ?> per file</p>
     </div>
     <input type="file" id="fileInput" multiple>
+
+    <div class="drop-zone public" id="dropZonePublic">
+      <div class="dz-icon">🌍</div>
+      <p>Drag &amp; drop <strong>public</strong> files here, or <span onclick="document.getElementById('fileInputPublic').click()">browse</span></p>
+      <p class="dz-hint">Public — everyone on the network can see and download it. Max <?= formatBytes(getMaxFileSize()) ?> per file</p>
+    </div>
+    <input type="file" id="fileInputPublic" multiple>
+
     <div id="progressWrap">
       <div class="prog-bg"><div class="prog-bar" id="progBar"></div></div>
       <div id="progLabel">0%</div>
@@ -71,6 +79,6 @@ $access   = checkIPAccess($clientIP);
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="assets/js/hub.js"></script>
+<script src="assets/js/hub.js?v=<?= @filemtime(__DIR__ . '/assets/js/hub.js') ?>"></script>
 </body>
 </html>

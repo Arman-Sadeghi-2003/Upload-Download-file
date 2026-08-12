@@ -88,7 +88,14 @@ header h1 { font-size: 1.3rem; }
 .drop-zone span { color: var(--accent); cursor: pointer; }
 .dz-hint { margin-top: .3rem; font-size: .76rem !important; }
 
-#fileInput { display: none; }
+/* Public drop zone — green accent to distinguish it from the private one */
+.drop-zone.public { border-color: rgba(63,185,80,.35); padding: 2rem; }
+.drop-zone.public:hover,
+.drop-zone.public.over { border-color: var(--green); background: rgba(63,185,80,.05); }
+.drop-zone.public span { color: var(--green); }
+.drop-zone.public strong { color: var(--green); }
+
+#fileInput, #fileInputPublic { display: none; }
 
 /* ── Progress Bar ────────────────────────────────────────────────────────── */
 #progressWrap { display: none; margin-bottom: 1.2rem; }
