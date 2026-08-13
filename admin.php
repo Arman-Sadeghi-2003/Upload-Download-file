@@ -227,25 +227,53 @@ $mode     = $rules['mode'] ?? 'blacklist';
 
   <!-- FILE MANAGER -->
   <div class="panel" id="tab-manager">
-    <?php if (empty($files)): ?>
-      <div class="empty">No files uploaded yet.</div>
-    <?php else: foreach ($files as $f):
-        $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-    ?>
-      <div class="adm-file" id="mf-<?= $f['id'] ?>">
-        <div class="adm-file-header">
-          <div class="adm-file-icon"><?= fileIcon($ext) ?></div>
-          <div class="adm-file-info">
-            <div class="adm-file-name"><?= htmlspecialchars($f['name']) ?></div>
-            <div class="adm-file-meta"><?= formatBytes($f['size']) ?> &bull; <?= $f['date'] ?> &bull; By <?= htmlspecialchars($f['uploader']) ?></div>
-          </div>
-          <div class="adm-file-actions">
-            <a href="download.php?id=<?= urlencode($f['id']) ?>" class="btn btn-primary btn-sm">⬇</a>
-            <button class="btn btn-danger btn-sm" onclick="deleteFile('<?= $f['id'] ?>','<?= addslashes($f['name']) ?>')">🗑</button>
-          </div>
+    <div id="mgrEmpty" class="empty" <?= empty($files) ? '' : 'style="display:none"' ?>>No files uploaded yet.</div>
+
+    <div id="mgrTools" <?= empty($files) ? 'style="display:none"' : '' ?>>
+      <div class="card">
+        <div class="card-title">Delete by Uploader IP</div>
+        <div class="mode-hint" style="margin-bottom:10px;">
+          Filter the list by who uploaded the file — exact IP, CIDR
+          (<code>192.168.1.0/24</code>) or wildcard (<code>192.168.1.*</code>).
+          A partial IP such as <code>192.168.1</code> also narrows as you type, and
+          <code>public</code> matches anonymous public uploads.
+          Select what you want gone, uncheck anything you want to keep, then delete.
         </div>
+        <div class="input-row">
+          <input type="text" id="mgrSearch" placeholder="Filter by uploader IP…" autocomplete="off">
+          <button class="btn btn-primary btn-sm" onclick="selectAllShown()">☑ Select shown</button>
+          <button class="btn btn-primary btn-sm" onclick="clearSelection()">Clear</button>
+          <button class="btn btn-danger btn-sm" id="mgrDeleteBtn" onclick="deleteSelected()" disabled>🗑 Delete selected</button>
+        </div>
+        <div class="mgr-status" id="mgrStatus"></div>
       </div>
-    <?php endforeach; endif; ?>
+
+      <div class="empty" id="mgrNoMatch" style="display:none">No files from that uploader.</div>
+
+      <div id="mgrList">
+        <?php foreach ($files as $f):
+            $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+        ?>
+          <div class="adm-file" id="mf-<?= $f['id'] ?>"
+               data-uploader="<?= htmlspecialchars($f['uploader'], ENT_QUOTES) ?>"
+               data-size="<?= (int)$f['size'] ?>">
+            <div class="adm-file-header">
+              <input type="checkbox" class="mf-check" value="<?= $f['id'] ?>"
+                     aria-label="Select <?= htmlspecialchars($f['name'], ENT_QUOTES) ?>">
+              <div class="adm-file-icon"><?= fileIcon($ext) ?></div>
+              <div class="adm-file-info">
+                <div class="adm-file-name"><?= htmlspecialchars($f['name']) ?></div>
+                <div class="adm-file-meta"><?= formatBytes($f['size']) ?> &bull; <?= $f['date'] ?> &bull; By <?= htmlspecialchars($f['uploader']) ?></div>
+              </div>
+              <div class="adm-file-actions">
+                <a href="download.php?id=<?= urlencode($f['id']) ?>" class="btn btn-primary btn-sm">⬇</a>
+                <button class="btn btn-danger btn-sm" onclick="deleteFile('<?= $f['id'] ?>','<?= addslashes($f['name']) ?>')">🗑</button>
+              </div>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
   </div>
 
   <!-- LOGS -->

@@ -85,6 +85,45 @@ switch ($action) {
         }));
         break;
 
+    case 'delete_files':
+        $ids = json_decode($_POST['file_ids'] ?? '', true);
+        if (!is_array($ids)) { echo json_encode(['success'=>false,'error'=>'No files selected']); break; }
+        // IDs are bin2hex(random_bytes(8)) — anything else never came from this app
+        $ids = array_values(array_filter($ids,
+            fn($i) => is_string($i) && preg_match('/^[a-f0-9]{16}$/', $i)));
+        if (!$ids) { echo json_encode(['success'=>false,'error'=>'No valid file IDs']); break; }
+
+        echo json_encode(withLock(function () use ($ids) {
+            $meta    = loadFilesMeta();
+            $deleted = [];
+
+            // saveName comes from the metadata, never from the request, so the
+            // unlink target cannot be steered by what the client sent
+            foreach ($meta as $f) {
+                if (!in_array($f['id'], $ids, true)) continue;
+                @unlink(UPLOAD_DIR . $f['saveName']);
+                $deleted[] = $f['id'];
+            }
+            if (!$deleted) return ['success'=>true,'deleted'=>[]];
+
+            // One rewrite for the whole batch. Deleting 40 files through
+            // delete_file would take the lock 40 times and rewrite both JSON
+            // files 40 times over.
+            saveFilesMeta(array_values(array_filter($meta,
+                fn($f) => !in_array($f['id'], $deleted, true))));
+
+            $rules = loadIPRules();
+            foreach ($deleted as $id) unset($rules['files'][$id]);
+            saveIPRules($rules);
+
+            // Destructive and bulk — worth one audit row. One per batch rather
+            // than one per file, so a big delete cannot flush the 1000-entry log.
+            logAccess(getClientIP(), 'delete (bulk)', count($deleted) . ' file(s)', true);
+
+            return ['success'=>true,'deleted'=>$deleted];
+        }));
+        break;
+
     case 'get_logs':
         $log = file_exists(ACCESS_LOG_FILE)
             ? (json_decode(file_get_contents(ACCESS_LOG_FILE), true) ?? []) : [];

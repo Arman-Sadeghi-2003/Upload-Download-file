@@ -100,7 +100,7 @@ A **public** upload gets no entry in `files` at all — that absence is what mak
 
 **`accesslog.json`** — append-only ring buffer, trimmed to the last 1000 entries. Each row: timestamp, IP, action (`upload` / `download`), filename, and whether it was granted.
 
-Writes are plain `file_put_contents` with no locking, which is fine for the LAN-scale, low-concurrency use this targets.
+Every read-modify-write of these files runs inside `withLock()` (see [`upload-queue-implementation.md`](upload-queue-implementation.md) §2.6), a `flock()` critical section over a single `data/.lock` file. The lock spans the read *and* the write, because that is where the race is — `LOCK_EX` on the write alone would not close it.
 
 ---
 
@@ -176,7 +176,9 @@ Changing it affects **new uploads only**. Files already in the hub keep the rule
 
 **Admin.** `admin.php` compares the posted password against the `ADMIN_PASSWORD` constant and sets `$_SESSION['hub_admin']`. Every `api.php` action re-checks `isAdmin()` before doing anything. `admin.js` posts `FormData` with an `action` field; each handler mutates the relevant JSON file and returns `{success: true}` or `{success: false, error}`. The UI updates optimistically on success rather than re-rendering.
 
-`api.php` actions: `set_mode`, `add_global`, `remove_global`, `add_file_rule`, `remove_file_rule`, `add_visible_to`, `remove_visible_to`, `add_default_ip`, `remove_default_ip`, `delete_file`, `get_logs`, `get_settings`, `set_max_file_size`.
+`api.php` actions: `set_mode`, `add_global`, `remove_global`, `add_file_rule`, `remove_file_rule`, `add_visible_to`, `remove_visible_to`, `add_default_ip`, `remove_default_ip`, `delete_file`, `delete_files`, `get_logs`, `get_settings`, `set_max_file_size`.
+
+**File Manager.** Beyond the per-file 🗑, the tab filters the list by *uploader IP* and deletes a whole selection at once. The filter accepts the same exact / CIDR / wildcard forms as every other IP field (a bare partial like `192.168.1` also matches as a substring, and `public` matches anonymous uploads), and `delete_files` takes the chosen IDs as a JSON array, removing blobs, metadata and per-file rules inside one `withLock()`. Changing the filter clears the current selection, so files hidden by a filter can never be caught in a later delete.
 
 **Assets.** `index.php` and `admin.php` append `?v=<filemtime>` to their CSS and JS tags, so an edited asset gets a new URL and browsers can't serve a stale copy.
 
@@ -214,7 +216,7 @@ These are properties of the current design rather than a to-do list, but they ma
 - **IP headers are spoofable** unless a trusted proxy sets them. On a bare LAN, `REMOTE_ADDR` is the only reliable value.
 - **Uploads are unauthenticated.** Anyone whose IP passes the global check can upload; there is no user account system at all. That includes the public zone, so any such visitor can publish a file to everyone on the network without an admin approving it.
 - **No file-type or content validation.** Any extension is accepted. `uploads/` sits inside the web root, so ensure the server never executes files from it.
-- **JSON writes are unlocked**, so concurrent uploads can in principle interleave and lose a metadata entry.
+- **Deletion is immediate and unrecoverable.** There is no trash or undo — the File Manager's bulk delete removes the blobs, the metadata and the per-file rules in one commit. It logs a single `delete (bulk)` audit row; the single-file 🗑 button logs nothing.
 - **`data/` and `uploads/` are inside the web root.** Directory browsing is off in `web.config`, but a request for `data/iprules.json` is served as a static file — moving these outside the site root, or blocking them with a request-filtering rule, is the safer arrangement.
 
 The README's own closing note applies: this is built for **local / LAN use**. Exposing it to the internet means adding HTTPS, a real credential, and admin restrictions at minimum.
