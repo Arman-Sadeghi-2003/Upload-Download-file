@@ -46,13 +46,21 @@ $access   = checkIPAccess($clientIP);
     </div>
     <input type="file" id="fileInputPublic" multiple>
 
-    <div id="progressWrap">
-      <div class="prog-bg"><div class="prog-bar" id="progBar"></div></div>
-      <div id="progLabel">0%</div>
+    <!-- Upload queue — one row per job, rendered entirely by hub.js -->
+    <div class="upload-queue" id="uploadQueue">
+      <div class="uq-head">
+        <div class="uq-summary" id="uqSummary"></div>
+        <button type="button" class="uq-clear" id="uqCancelAll">Cancel all</button>
+      </div>
+      <div class="uq-total-bg"><div class="uq-total-bar" id="uqTotalBar"></div></div>
+      <div class="uq-rows" id="uqRows"></div>
     </div>
+
+    <!-- Lets the queue reject an oversized file before transferring it -->
+    <script>window.HUB_MAX_SIZE = <?= getMaxFileSize() ?>;</script>
   <?php endif; ?>
 
-  <div class="sec-title">📂 Files (<?= count($files) ?>)</div>
+  <div class="sec-title">📂 Files (<span id="fileCount"><?= count($files) ?></span>)</div>
   <div class="file-list" id="fileList">
     <?php if (empty($files)): ?>
       <div class="empty">No files uploaded yet.</div>

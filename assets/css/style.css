@@ -97,23 +97,125 @@ header h1 { font-size: 1.3rem; }
 
 #fileInput, #fileInputPublic { display: none; }
 
-/* ── Progress Bar ────────────────────────────────────────────────────────── */
-#progressWrap { display: none; margin-bottom: 1.2rem; }
+/* ── Upload Queue ────────────────────────────────────────────────────────── */
+.upload-queue {
+  display: none;                /* hub.js shows it while jobs exist */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: .9rem 1.1rem;
+  margin-bottom: 1.5rem;
+}
 
-.prog-bg {
+.uq-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .55rem;
+}
+.uq-summary { font-size: .82rem; color: var(--muted); }
+
+.uq-clear {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font: inherit;
+  font-size: .76rem;
+  padding: .22rem .6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: .15s;
+}
+.uq-clear:hover { border-color: var(--red); color: var(--red); }
+
+/* Aggregate bar — byte-weighted across every job in the batch */
+.uq-total-bg {
   background: var(--border);
   border-radius: 99px;
   height: 7px;
   overflow: hidden;
 }
-.prog-bar {
+.uq-total-bar {
   background: var(--accent);
   height: 100%;
   width: 0%;
-  transition: width .15s;
   border-radius: 99px;
+  transition: width .15s;
 }
-#progLabel { font-size: .78rem; color: var(--muted); margin-top: .35rem; text-align: right; }
+
+.uq-rows { display: flex; flex-direction: column; gap: .5rem; margin-top: .9rem; }
+
+.uq-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .5rem .1rem;
+  border-top: 1px solid var(--border);
+}
+.uq-row:first-child { border-top: none; padding-top: .1rem; }
+
+.uq-icon { font-size: 1.15rem; flex-shrink: 0; }
+.uq-main { flex: 1; min-width: 0; }
+
+.uq-name {
+  font-size: .84rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uq-bg {
+  background: var(--border);
+  border-radius: 99px;
+  height: 4px;
+  overflow: hidden;
+  margin: .35rem 0 .25rem;
+}
+.uq-bar {
+  background: var(--accent);
+  height: 100%;
+  width: 0%;
+  border-radius: 99px;
+  transition: width .15s;
+}
+
+.uq-meta { font-size: .72rem; color: var(--muted); }
+
+.uq-badge {
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.uq-act {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: .95rem;
+  line-height: 1;
+  padding: .25rem .35rem;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: .15s;
+}
+.uq-act:hover { color: var(--text); background: rgba(255,255,255,.06); }
+
+/* Per-status colouring, driven by data-status on the row */
+.uq-row[data-status="done"]     .uq-bar   { background: var(--green); }
+.uq-row[data-status="done"]     .uq-badge { color: var(--green); }
+.uq-row[data-status="error"]    .uq-bar   { background: var(--red); }
+.uq-row[data-status="error"]    .uq-badge,
+.uq-row[data-status="error"]    .uq-meta  { color: var(--red); }
+.uq-row[data-status="canceled"] .uq-badge { color: var(--muted); }
+.uq-row[data-status="canceled"] .uq-name,
+.uq-row[data-status="queued"]   .uq-name  { color: var(--muted); }
+.uq-row[data-status="uploading"] .uq-badge { color: var(--accent); }
 
 /* ── Section Title ───────────────────────────────────────────────────────── */
 .sec-title {

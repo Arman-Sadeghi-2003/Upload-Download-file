@@ -121,6 +121,19 @@ function checkIPAccess(string $ip, ?string $fileId = null): array {
 
 
 // ── Data Helpers ──────────────────────────────────────────────────────────────
+// Runs $fn holding an exclusive lock on data/. Every read-modify-write of the
+// JSON files must go through this: LOCK_EX on the write alone would not help,
+// because the race is between the read and the write, not inside the write.
+// One lock guards all of data/ — an upload touches metadata, rules and the log
+// as a single logical commit.
+function withLock(callable $fn) {
+    $fh = @fopen(DATA_DIR . '.lock', 'c');
+    if ($fh === false) return $fn();   // can't lock → still do the work, as before
+    flock($fh, LOCK_EX);
+    try     { return $fn(); }
+    finally { flock($fh, LOCK_UN); fclose($fh); }
+}
+
 function loadIPRules(): array {
     if (!file_exists(IP_RULES_FILE)) return ['mode'=>'blacklist','global'=>[],'files'=>[]];
     return json_decode(file_get_contents(IP_RULES_FILE), true) ?? ['mode'=>'blacklist','global'=>[],'files'=>[]];
