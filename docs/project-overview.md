@@ -1,6 +1,6 @@
 # File Hub — Project Overview
 
-**File Hub** is a small, self-hosted file sharing application for local networks. Users on the LAN open a single page, drag files in, and download files that others have shared. Uploads go through one of two drop zones — **private** (restricted to a configurable set of IPs) or **public** (open to everyone). Access is controlled entirely by **client IP address**, managed from a password-protected admin panel.
+**File Hub** is a small, self-hosted file sharing application for local networks. Users on the LAN open one page with two views — **Upload** and **Files** — drag files in, and download what others have shared. Uploads go through one of two drop zones, **private** (restricted to a configurable set of IPs) or **public** (open to everyone). Access is controlled entirely by **client IP address**, managed from a password-protected admin panel.
 
 It is deliberately dependency-free: plain PHP, plain JavaScript, plain CSS. No framework, no database, no package manager. State lives in JSON files on disk.
 
@@ -36,14 +36,14 @@ Every entry point starts with `require 'config.php'`, which opens the session, d
 
 | File | Role |
 |---|---|
-| [`config.php`](../config.php) | The core. Path constants, admin password, settings load/save, client-IP detection, IP rule matching, access decisions, metadata and log persistence, formatting helpers. |
+| [`config.php`](../config.php) | The core. Path constants, admin password, settings load/save, client-IP detection, IP rule matching, access decisions, metadata and log persistence, the `withLock()` critical section, and the formatting helpers — `formatBytes()`, `fileIcon()` and `fileCategory()`. |
 | [`index.php`](../index.php) | The public hub. Two tabbed views — Upload (the private and public drop zones) and Files (the list, filtered to what the visiting IP is allowed to *see*). |
 | [`upload.php`](../upload.php) | Multipart upload endpoint. Validates access and size, stores the blob under a random ID, writes metadata, and — for private uploads only — applies default per-file rules. Returns JSON. |
 | [`download.php`](../download.php) | Streams a file back with HTTP Range support, after checking per-file access. |
 | [`api.php`](../api.php) | Admin-only JSON API. All rule, settings, deletion, and log operations. |
 | [`admin.php`](../admin.php) | Login form plus the four-tab admin panel (Global Rules, Per-File Rules, File Manager, Access Logs). |
-| [`assets/js/hub.js`](../assets/js/hub.js) | Drag & drop for both zones, XHR upload with a progress bar, toast notifications, optimistic file-card insertion. |
-| [`assets/js/admin.js`](../assets/js/admin.js) | Tab switching and every admin API call, each with optimistic DOM updates. |
+| [`assets/js/hub.js`](../assets/js/hub.js) | The whole hub interface: Upload/Files view switching, drag & drop plus the full-window drop overlay, the serialized upload queue with per-file progress, cancel and retry, optimistic file-card insertion, and the Files view's type filter and pagination. |
+| [`assets/js/admin.js`](../assets/js/admin.js) | Tab switching and every admin API call, each with optimistic DOM updates; the File Manager's uploader-IP filter and bulk selection; the Access Logs filters. |
 | [`assets/css/style.css`](../assets/css/style.css), [`assets/css/admin.css`](../assets/css/admin.css) | Dark-theme styling for the hub and the admin panel. |
 | [`web.config`](../web.config) | IIS: FastCGI handler, `index.php` as default document, directory browsing off, request size limit raised. |
 
@@ -98,7 +98,7 @@ A **public** upload gets no entry in `files` at all — that absence is what mak
 }
 ```
 
-**`accesslog.json`** — append-only ring buffer, trimmed to the last 1000 entries. Each row: timestamp, IP, action (`upload` / `download`), filename, and whether it was granted.
+**`accesslog.json`** — append-only ring buffer, trimmed to the last 1000 entries. Each row: timestamp, IP, action (`upload`, `upload (public)`, `download`, `delete (bulk)`), filename, and whether it was granted. `get_logs` adds a derived `type` to each row on the way out; it is not stored.
 
 Every read-modify-write of these files runs inside `withLock()` (see [`upload-queue-implementation.md`](upload-queue-implementation.md) §2.6), a `flock()` critical section over a single `data/.lock` file. The lock spans the read *and* the write, because that is where the race is — `LOCK_EX` on the write alone would not close it.
 
@@ -150,7 +150,7 @@ The hub offers two drop zones, and the difference between them is entirely a mat
 | `uploader` in metadata | the real IP | the literal string `public` |
 | Access log action | `upload` | `upload (public)` |
 
-`hub.js` sends `public=1` in the FormData for the second zone. When `upload.php` sees it, it skips the `saveIPRules()` call entirely. No new rule syntax was needed: `checkFileVisibility()` already returns `true` for a file with no entry, and `checkIPAccess()` already falls through to the global rules. A public file is therefore identical to one whose IP lists an admin has manually emptied — the state the admin panel labels "— visible to all —".
+`hub.js` sends `public=1` in the FormData for files that came from the public zone — or from the public half of the drop overlay; the flag is carried on the job, so a mixed batch keeps each file's choice. When `upload.php` sees it, it skips the `saveIPRules()` call entirely. No new rule syntax was needed: `checkFileVisibility()` already returns `true` for a file with no entry, and `checkIPAccess()` already falls through to the global rules. A public file is therefore identical to one whose IP lists an admin has manually emptied — the state the admin panel labels "— visible to all —".
 
 Note that public does **not** mean unconditional: the global rules still apply. In whitelist mode, a visitor who isn't whitelisted is denied a public file like anything else.
 
@@ -168,29 +168,55 @@ Changing it affects **new uploads only**. Files already in the hub keep the rule
 
 ## Request flows
 
-**Upload.** `hub.js` sends one `XMLHttpRequest` per file to `upload.php`, tracking `upload.onprogress` for the progress bar. Both zones share one `wireDropZone()` binding and one progress bar; only the `public` flag differs. The server checks global access, method, `$_FILES` error state, and size against `getMaxFileSize()`; generates the ID; `move_uploaded_file()`s the blob; prepends metadata; writes the default rules (private only); logs the event; and returns the card fields as JSON so the client can insert the new card without a reload.
-
-`hub.js` also cancels the default `dragover`/`drop` on `document`, so a file dropped just outside a zone is ignored instead of making the browser navigate away to it.
-
-**Hub views.** Upload and Files are two panels of one page, toggled in `hub.js` and reflected in the URL as `#upload` / `#files`. They are deliberately *not* two pages: a real navigation would abort every in-flight `XMLHttpRequest`, so switching views mid-transfer has to cost nothing. For the same reason the queue panel is rendered outside both panels — an upload started under Upload keeps running and stays on screen while you browse Files, and the file count in the Files tab increments live as each one lands. Files is the default view, except on an empty hub where there is nothing to browse and Upload opens instead. A denied IP gets no Upload tab at all, and a stale `#upload` bookmark falls back to Files.
-
-**File-type filter.** The Files view filters by category — Images, Video, Audio, Documents, Archives, Code, Executables, Other. `fileCategory()` in `config.php` is the single definition of those buckets: `index.php` stamps each card with `data-type`, `upload.php` returns a `type` with every new file so an inserted card filters like a rendered one, and `get_logs` tags each log row the same way. Nothing in JavaScript repeats the extension lists, so the hub filter and the admin log filter cannot drift apart. The filter drives what gets paginated, and changing it returns to page 1 rather than stranding the reader on a page the new set does not have.
-
-**Pagination.** The Files view shows `PAGE_SIZE` (10) cards at a time. `index.php` still renders every visible card and `hub.js` shows a slice, for the same reason the views are tabs: a `?page=2` round trip would reload the document and abort any upload in flight. The page-number strip collapses to `1 … 9 10 11 … 20` so the control keeps its width however many files accumulate, and it is omitted entirely while everything fits on one page. A card arriving from an upload re-runs the pager but does *not* jump to page 1 — a batch finishing in the background should not move the view out from under someone browsing. The trade is that a very large hub ships every card up front; the point where that stops being worthwhile is also the point where this view wants a search box more than a pager.
-
-Because the drop zones sit behind a tab, `hub.js` also renders a full-window overlay on `dragenter`, split into a private and a public half. A file can then be dropped from either view, with the zone chosen by which half it is released over. The overlay tracks `dragenter`/`dragleave` with a depth counter rather than a boolean — both fire for every element the cursor crosses, so a flag would flicker as the pointer moves over children — and it ignores drags that do not carry `Files`, such as selected text.
+**Upload.** `hub.js` turns each selected file into a *job* and runs the jobs through a scheduler — one at a time by default — instead of firing a request per file at once. [`upload-queue-implementation.md`](upload-queue-implementation.md) covers why, and the queue's own UI. Each job sends one `XMLHttpRequest` to `upload.php` carrying the `public` flag its zone implies, tracking `upload.onprogress`. The server checks global access, method, `$_FILES` error state, and size against `getMaxFileSize()`; generates the ID; `move_uploaded_file()`s the blob; then, inside a single `withLock()`, prepends the metadata, writes the default rules (private only) and logs the event. It returns the card fields as JSON — including the file's `type` — so the client can insert the new card without a reload.
 
 **Download.** `download.php` looks up the entry by ID, logs the attempt (granted or not), then enforces access. On success it clears all output buffers, disables the time limit, sets `ignore_user_abort`, and streams the file in 1 MB chunks with `flush()` between them — so a multi-gigabyte file never has to fit in memory. `Range` requests are parsed (including suffix ranges like `bytes=-500`) and answered with `206 Partial Content` and a correct `Content-Range`; an unsatisfiable range gets `416`. `Accept-Ranges: bytes` means browsers and download managers can resume and parallelize. Filenames go out both percent-encoded and as RFC 5987 `filename*=UTF-8''…` so non-ASCII names survive.
 
 **Admin.** `admin.php` compares the posted password against the `ADMIN_PASSWORD` constant and sets `$_SESSION['hub_admin']`. Every `api.php` action re-checks `isAdmin()` before doing anything. `admin.js` posts `FormData` with an `action` field; each handler mutates the relevant JSON file and returns `{success: true}` or `{success: false, error}`. The UI updates optimistically on success rather than re-rendering.
 
-`api.php` actions: `set_mode`, `add_global`, `remove_global`, `add_file_rule`, `remove_file_rule`, `add_visible_to`, `remove_visible_to`, `add_default_ip`, `remove_default_ip`, `delete_file`, `delete_files`, `get_logs`, `get_settings`, `set_max_file_size`.
-
-**Access Logs.** `get_logs` returns the whole ring buffer in one response, so the tab's three filters — uploader IP, action, and file-type category — run client-side over the fetched rows and apply as you type. The action list is built from the data rather than hardcoded, so a new action string added to `logAccess()` appears in the dropdown on its own. File-type categories reuse the extension lists from `fileIcon()`; anything unlisted, extensionless, or not a filename at all (a bulk delete records `3 file(s)`) falls under *Other*.
-
-**File Manager.** Beyond the per-file 🗑, the tab filters the list by *uploader IP* and deletes a whole selection at once. The filter accepts the same exact / CIDR / wildcard forms as every other IP field (a bare partial like `192.168.1` also matches as a substring, and `public` matches anonymous uploads), and `delete_files` takes the chosen IDs as a JSON array, removing blobs, metadata and per-file rules inside one `withLock()`. Changing the filter clears the current selection, so files hidden by a filter can never be caught in a later delete.
+`api.php` actions: `set_mode`, `add_global`, `remove_global`, `add_file_rule`, `remove_file_rule`, `add_visible_to`, `remove_visible_to`, `add_default_ip`, `remove_default_ip`, `delete_file`, `delete_files`, `get_logs`, `get_settings`, `set_max_file_size`. Every one that reads-modifies-writes runs inside `withLock()`; `get_logs` and `get_settings` only read.
 
 **Assets.** `index.php` and `admin.php` append `?v=<filemtime>` to their CSS and JS tags, so an edited asset gets a new URL and browsers can't serve a stale copy.
+
+---
+
+## The hub interface
+
+One page, two views, and one rule that shapes all of it: **nothing may cost a page load.** An upload of several gigabytes can be in flight at any moment, and a navigation would abort it. That is why the views are tabs rather than pages, and why filtering and paging happen over cards already in the DOM rather than through `?page=2`.
+
+### Views
+
+Upload and Files are two panels toggled in `hub.js` and reflected in the URL as `#upload` / `#files`, so a refresh lands where the reader left off. The queue panel is rendered *outside* both panels: an upload started under Upload keeps running and stays on screen while you browse Files, and the count in the Files tab rises as each one lands. Files is the resting view, except on an empty hub where it has nothing to show and Upload opens instead. A denied IP gets no Upload tab at all — no tab, no queue, no overlay — and a stale `#upload` bookmark falls back to Files.
+
+### Dropping files
+
+`hub.js` cancels the default `dragover`/`drop` on `document`, so a file dropped outside a zone is ignored instead of making the browser navigate away to it. Because the drop zones sit behind a tab, it also renders a full-window overlay on `dragenter`, split into a private and a public half: a file can be dropped from either view, with the zone chosen by which half it is released over. The overlay counts `dragenter`/`dragleave` depth rather than holding a boolean — both fire for every element the cursor crosses, so a flag would flicker as the pointer moves over children — and it ignores drags carrying no `Files`, such as selected text.
+
+### File-type filter
+
+The Files view narrows to a category: Images, Video, Audio, Documents, Archives, Code, Executables, Other. `fileCategory()` in `config.php` is the **single definition** of those buckets — `index.php` stamps each card with `data-type`, `upload.php` returns a `type` with every new file so an inserted card filters like a rendered one, and `get_logs` tags each log row the same way. No JavaScript repeats the extension lists, so the hub filter and the admin log filter cannot drift apart.
+
+### Pagination
+
+The Files view shows `PAGE_SIZE` (10) cards at a time, sliced from what the filter left. Changing the filter returns to page 1: page 4 of thirty files is not a page of the four that survive a filter. The number strip collapses to `1 … 9 10 11 … 20` so the control keeps its width however many files accumulate, and it is omitted entirely while everything fits on one page. A card arriving from an upload re-runs the pager but holds the current page — a batch finishing in the background should not move the view out from under someone browsing.
+
+The trade is that a large hub ships every card up front. At LAN scale that is a few hundred KB; the point where it stops being worth it is also the point where this view wants a search box more than a pager.
+
+---
+
+## The admin panel
+
+Four tabs — Global Rules, Per-File Rules, File Manager, Access Logs — over the same `api.php`.
+
+### File Manager
+
+Beyond the per-file 🗑, the tab filters the list by **uploader IP** and deletes a whole selection at once. The filter takes the same exact / CIDR / wildcard forms as every other IP field (a bare partial like `192.168.1` also matches as a substring, and `public` matches anonymous uploads). Ticked files go to `delete_files` as a JSON array of IDs, which removes blobs, metadata and per-file rules inside one `withLock()` and returns the IDs it actually removed, so a stale row reports "already gone" instead of failing the batch. IDs are validated against the 16-hex-char shape `random_bytes(8)` produces, and the unlink target still comes from the stored `saveName`, never from the request.
+
+Changing the filter **clears the selection**. Without that, files ticked under one IP would ride along into a delete run under another, removing files the admin can no longer see.
+
+### Access Logs
+
+`get_logs` returns the whole ring buffer in one response, so the tab's three filters — uploader IP, action, and file-type category — run client-side over the fetched rows and apply as you type. The IP box shares its matcher with the File Manager filter. The action list is built from the data rather than hardcoded, so a new action string passed to `logAccess()` appears in the dropdown on its own. Filters survive a Refresh, including the chosen action when it still exists in the new data.
 
 ---
 
@@ -205,6 +231,8 @@ That figure only governs the application's own check. Three other limits sit abo
 - `php.ini` → `upload_max_filesize`, `post_max_size`, `max_execution_time`, `max_input_time`, `memory_limit`
 
 Raising the admin-panel limit alone is not enough; the server-level values have to move with it, and IIS needs an `iisreset` afterwards.
+
+The hub limit also reaches the browser as `window.HUB_MAX_SIZE`, so an oversized file is refused at the moment it is queued rather than after being pushed across the network. The server-level ceilings cannot be checked that way: when one of them rejects an upload, IIS answers **413** before PHP runs at all, and the queue reports that case separately because the fix lies in `web.config` or `php.ini` rather than the admin panel.
 
 ---
 

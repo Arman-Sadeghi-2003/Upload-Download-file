@@ -1,9 +1,10 @@
 # Upload Queue — Design & Implementation
 
-**Branch:** `feature/upload-queue`
 **Status:** Phase 1 implemented and verified (§5). Phase 2 (chunked / resumable transport) is specified here but not built.
 
 This document covers the multi-file upload queue: why the previous behaviour was wrong, what replaced it, and where it should go next. It assumes familiarity with [`project-overview.md`](project-overview.md).
+
+Two later changes touched the queue without altering its design, and are described here as they now stand rather than as they first landed: the hub was split into Upload and Files views, which moved the queue panel outside both of them, and the file count it updates moved from a heading into the Files tab label. The reason the views are tabs at all is the property §2.1 exists to protect — a navigation would abort every job in flight.
 
 ---
 
@@ -82,6 +83,8 @@ Serialization is also what makes §1.2 survivable in the common single-user case
 
 The single shared bar is gone. Each job renders a row: icon (☁️ or 🌍, so a mixed batch stays readable), filename, size, a per-job progress bar, a status badge, and one action button whose meaning follows the row's status — ✕ cancels while queued or uploading, ↻ retries after a failure, and ✕ dismisses a file rejected at enqueue, where retrying the same oversized file could only fail again. Above the rows sits an aggregate summary.
 
+The panel sits outside both of the hub's view panels, directly under the tab bar. A job started from the Upload view keeps running when the reader switches to Files, so its progress has to stay on screen from either view; a panel nested inside Upload would hide the evidence of work still going on.
+
 The aggregate is computed **in bytes, not in file count**:
 
 ```js
@@ -141,7 +144,7 @@ This matters even with `MAX_CONCURRENT = 1`, because the client queue only seria
 
 ### 2.7 Incidental fixes
 
-- The `📂 Files (N)` heading is now updated by `prependCard()`. Previously it kept its server-rendered value, so a batch of twenty uploads left the page reading "Files (0)" above twenty visible cards.
+- The `📂 Files (N)` count is now updated by `prependCard()`. Previously it kept its server-rendered value, so a batch of twenty uploads left the page reading "Files (0)" above twenty visible cards. It began as a heading above the list and now lives in the Files tab label, which is what makes a completed upload visible while the reader is on the Upload view.
 - Toast spam is gone. Individual results live on their rows; a single summary toast fires when the batch drains ("7 uploaded, 1 failed").
 
 ---
@@ -152,7 +155,7 @@ This matters even with `MAX_CONCURRENT = 1`, because the client queue only seria
 |---|---|
 | [`assets/js/hub.js`](../assets/js/hub.js) | Job model, `enqueue()` / `pump()` / `startJob()`, queue-panel rendering, cancel & retry, byte-accurate aggregate, status-code handling. `uploadOne()` removed. |
 | [`assets/css/style.css`](../assets/css/style.css) | `.upload-queue` panel, `.uq-row` and children, status badge colours. Old `#progressWrap` rules removed. |
-| [`index.php`](../index.php) | `#progressWrap` markup replaced by the queue panel container; `window.HUB_MAX_SIZE` emitted. |
+| [`index.php`](../index.php) | `#progressWrap` markup replaced by the queue panel container; `window.HUB_MAX_SIZE` emitted. The panel later moved outside the two view panels, where it still sits. |
 | [`upload.php`](../upload.php) | Metadata / rules / log commit moved inside `withLock()`. |
 | [`config.php`](../config.php) | `withLock()` helper. |
 | [`api.php`](../api.php) | Mutating actions wrapped in `withLock()`. |
@@ -184,7 +187,9 @@ Strictly serial is right for large files and measurably slower for many small on
 
 ### 4.3 Folder upload
 
-Adding `webkitdirectory` to the inputs and walking dropped directories with `DataTransferItem.webkitGetAsEntry()` would flatten a folder into the queue. Today, dropping a folder silently yields nothing. The enqueue path already exists, so this is a small addition — perhaps thirty lines — whenever it is wanted.
+Adding `webkitdirectory` to the inputs and walking dropped directories with `DataTransferItem.webkitGetAsEntry()` would flatten a folder into the queue. The enqueue path already exists, so this is a small addition — perhaps thirty lines — whenever it is wanted.
+
+A dropped folder currently arrives in `dataTransfer.files` as a single zero-byte entry, so the empty-file check in §2.4 catches it and the row reads "Empty file — nothing to upload". That is at least visible rather than silent, but it is a misleading explanation of what happened, and it is the first thing folder support should replace.
 
 ### 4.4 Considered and rejected
 
