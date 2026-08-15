@@ -58,6 +58,64 @@ header h1 { font-size: 1.3rem; }
 /* ── Container ───────────────────────────────────────────────────────────── */
 .container { max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
 
+/* ── Tabs & Panels ───────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0 2rem;
+}
+.tab {
+  padding: .75rem 1.2rem;
+  font-size: .9rem;
+  cursor: pointer;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: .2s;
+  user-select: none;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── Full-window Drop Overlay ────────────────────────────────────────────── */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: none;
+  background: rgba(13,17,23,.93);
+  padding: 1.2rem;
+  gap: 1.2rem;
+}
+.drop-overlay.on { display: flex; }
+
+.do-half {
+  flex: 1;
+  border: 2px dashed var(--border);
+  border-radius: var(--r);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  transition: .15s;
+}
+.do-half.over        { border-color: var(--accent); background: rgba(88,166,255,.08); }
+.do-half.public.over { border-color: var(--green);  background: rgba(63,185,80,.08); }
+
+.do-icon  { font-size: 3rem; }
+.do-title { font-size: 1.1rem; font-weight: 600; }
+.do-hint  { font-size: .82rem; color: var(--muted); }
+.do-half.public .do-title { color: var(--green); }
+
+/* Children would otherwise swallow the drag events the halves need to see */
+.drop-overlay * { pointer-events: none; }
+.drop-overlay .do-half { pointer-events: auto; }
+
 /* ── Blocked Banner ──────────────────────────────────────────────────────── */
 .blocked {
   background: rgba(248,81,73,.08);
@@ -217,15 +275,6 @@ header h1 { font-size: 1.3rem; }
 .uq-row[data-status="queued"]   .uq-name  { color: var(--muted); }
 .uq-row[data-status="uploading"] .uq-badge { color: var(--accent); }
 
-/* ── Section Title ───────────────────────────────────────────────────────── */
-.sec-title {
-  font-size: .78rem;
-  color: var(--muted);
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  margin-bottom: .8rem;
-}
 
 /* ── File List ───────────────────────────────────────────────────────────── */
 .file-list { display: flex; flex-direction: column; gap: .55rem; }

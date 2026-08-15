@@ -37,7 +37,7 @@ Every entry point starts with `require 'config.php'`, which opens the session, d
 | File | Role |
 |---|---|
 | [`config.php`](../config.php) | The core. Path constants, admin password, settings load/save, client-IP detection, IP rule matching, access decisions, metadata and log persistence, formatting helpers. |
-| [`index.php`](../index.php) | The public hub. Renders the two drop zones (private and public) and the file list, filtered to what the visiting IP is allowed to *see*. |
+| [`index.php`](../index.php) | The public hub. Two tabbed views — Upload (the private and public drop zones) and Files (the list, filtered to what the visiting IP is allowed to *see*). |
 | [`upload.php`](../upload.php) | Multipart upload endpoint. Validates access and size, stores the blob under a random ID, writes metadata, and — for private uploads only — applies default per-file rules. Returns JSON. |
 | [`download.php`](../download.php) | Streams a file back with HTTP Range support, after checking per-file access. |
 | [`api.php`](../api.php) | Admin-only JSON API. All rule, settings, deletion, and log operations. |
@@ -171,6 +171,10 @@ Changing it affects **new uploads only**. Files already in the hub keep the rule
 **Upload.** `hub.js` sends one `XMLHttpRequest` per file to `upload.php`, tracking `upload.onprogress` for the progress bar. Both zones share one `wireDropZone()` binding and one progress bar; only the `public` flag differs. The server checks global access, method, `$_FILES` error state, and size against `getMaxFileSize()`; generates the ID; `move_uploaded_file()`s the blob; prepends metadata; writes the default rules (private only); logs the event; and returns the card fields as JSON so the client can insert the new card without a reload.
 
 `hub.js` also cancels the default `dragover`/`drop` on `document`, so a file dropped just outside a zone is ignored instead of making the browser navigate away to it.
+
+**Hub views.** Upload and Files are two panels of one page, toggled in `hub.js` and reflected in the URL as `#upload` / `#files`. They are deliberately *not* two pages: a real navigation would abort every in-flight `XMLHttpRequest`, so switching views mid-transfer has to cost nothing. For the same reason the queue panel is rendered outside both panels — an upload started under Upload keeps running and stays on screen while you browse Files, and the file count in the Files tab increments live as each one lands. Files is the default view, except on an empty hub where there is nothing to browse and Upload opens instead. A denied IP gets no Upload tab at all, and a stale `#upload` bookmark falls back to Files.
+
+Because the drop zones sit behind a tab, `hub.js` also renders a full-window overlay on `dragenter`, split into a private and a public half. A file can then be dropped from either view, with the zone chosen by which half it is released over. The overlay tracks `dragenter`/`dragleave` with a depth counter rather than a boolean — both fire for every element the cursor crosses, so a flag would flicker as the pointer moves over children — and it ignores drags that do not carry `Files`, such as selected text.
 
 **Download.** `download.php` looks up the entry by ID, logs the attempt (granted or not), then enforces access. On success it clears all output buffers, disables the time limit, sets `ignore_user_abort`, and streams the file in 1 MB chunks with `flush()` between them — so a multi-gigabyte file never has to fit in memory. `Range` requests are parsed (including suffix ranges like `bytes=-500`) and answered with `206 Partial Content` and a correct `Content-Range`; an unsatisfiable range gets `416`. `Accept-Ranges: bytes` means browsers and download managers can resume and parallelize. Filenames go out both percent-encoded and as RFC 5987 `filename*=UTF-8''…` so non-ASCII names survive.
 

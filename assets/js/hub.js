@@ -34,12 +34,84 @@ function showToast(msg, type = 'ok') {
   toast._t = setTimeout(() => toast.style.display = 'none', 3500);
 }
 
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+// Upload and Files are two views of one page rather than two pages, because a
+// real navigation would abort every in-flight XHR — switching tabs mid-transfer
+// has to be free.
+function showTab(name) {
+  const panel = document.getElementById('tab-' + name);
+  if (!panel) return;                       // e.g. #upload for a blocked IP
+  document.querySelectorAll('.tab, .panel').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${name}"]`)?.classList.add('active');
+  panel.classList.add('active');
+  // replaceState rather than assigning location.hash: no history entry per
+  // toggle, and no hashchange to bounce back through this function.
+  if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
+}
+
+document.querySelectorAll('.tab').forEach(t =>
+  t.addEventListener('click', () => showTab(t.dataset.tab))
+);
+window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
+if (location.hash) showTab(location.hash.slice(1));   // a refresh lands where you left off
+
 // ── Drag & Drop ───────────────────────────────────────────────────────────────
 // Without these, a file dropped anywhere outside a zone makes the browser
 // navigate away to that file instead of ignoring the drop.
 ['dragover', 'drop'].forEach(ev =>
   document.addEventListener(ev, e => e.preventDefault())
 );
+
+// ── Full-window drop overlay ──────────────────────────────────────────────────
+// With the drop zones behind a tab, dragging a file onto the Files view would
+// otherwise hit nothing. The overlay covers the window on dragenter so a file
+// can be dropped from either view, and the two halves keep the private/public
+// choice that the zones make explicit.
+const overlay = document.getElementById('dropOverlay');
+
+// dragenter/dragleave fire for every element the cursor crosses, so a plain
+// boolean flickers as the pointer moves over children. Counting entries and
+// exits is what keeps the overlay stable during a drag.
+let dragDepth = 0;
+
+const isFileDrag = e => [...(e.dataTransfer?.types || [])].includes('Files');
+
+function hideOverlay() {
+  dragDepth = 0;
+  overlay?.classList.remove('on');
+  overlay?.querySelectorAll('.do-half').forEach(h => h.classList.remove('over'));
+}
+
+if (overlay) {
+  document.addEventListener('dragenter', e => {
+    if (!isFileDrag(e)) return;             // ignore dragged text or links
+    dragDepth++;
+    overlay.classList.add('on');
+  });
+
+  document.addEventListener('dragleave', e => {
+    if (!isFileDrag(e)) return;
+    if (--dragDepth <= 0) hideOverlay();
+  });
+
+  // A drop fires no matching dragleave, so the counter has to be reset by hand
+  document.addEventListener('drop', hideOverlay);
+  document.addEventListener('dragend', hideOverlay);
+
+  [['doPrivate', false], ['doPublic', true]].forEach(([id, isPublic]) => {
+    const half = document.getElementById(id);
+    half.addEventListener('dragover',  e => { e.preventDefault(); half.classList.add('over'); });
+    half.addEventListener('dragleave', () => half.classList.remove('over'));
+    half.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      hideOverlay();
+      const files = [...(e.dataTransfer?.files || [])];
+      if (!files.length) { showToast('❌ Nothing to upload', 'err'); return; }
+      files.forEach(f => enqueue(f, isPublic));
+    });
+  });
+}
 
 function wireDropZone(zone, input, isPublic) {
   if (!zone) return;
