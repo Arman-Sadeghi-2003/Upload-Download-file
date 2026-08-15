@@ -127,7 +127,13 @@ switch ($action) {
     case 'get_logs':
         $log = file_exists(ACCESS_LOG_FILE)
             ? (json_decode(file_get_contents(ACCESS_LOG_FILE), true) ?? []) : [];
-        echo json_encode(['success'=>true,'logs'=>array_reverse($log)]);
+        // Categorise server-side so the log filter and the hub's file filter
+        // share one definition of the buckets — see fileCategory() in config.php
+        $log = array_map(
+            fn($r) => $r + ['type' => fileCategory((string)($r['file'] ?? ''))],
+            array_reverse($log)
+        );
+        echo json_encode(['success'=>true,'logs'=>$log]);
         break;
 
     case 'get_settings':

@@ -181,6 +181,24 @@ function fileIcon(string $ext): string {
     };
 }
 
+// The buckets behind every file-type filter — the hub's file list and the admin
+// log table both categorise through here, so the two can never drift apart.
+// Kept beside fileIcon() because they cover the same extensions: a category
+// always matches what its icon implies. Anything unlisted, extensionless, or
+// not a filename at all (a bulk delete logs "3 file(s)") lands in 'other'.
+function fileCategory(string $name): string {
+    return match (strtolower(pathinfo($name, PATHINFO_EXTENSION))) {
+        'jpg','jpeg','png','gif','webp','svg'            => 'image',
+        'mp4','mkv','avi','mov','webm'                   => 'video',
+        'mp3','wav','flac','ogg'                         => 'audio',
+        'pdf','doc','docx','xls','xlsx','txt','md','log' => 'document',
+        'zip','rar','7z','tar','gz'                      => 'archive',
+        'php','js','ts','py','cs','html','css','json'    => 'code',
+        'exe','msi','apk'                                => 'executable',
+        default                                          => 'other',
+    };
+}
+
 function isAdmin(): bool {
     return isset($_SESSION['hub_admin']) && $_SESSION['hub_admin'] === true;
 }

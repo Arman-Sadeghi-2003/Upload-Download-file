@@ -295,29 +295,9 @@ if (mgrList) {
 // filters run over the fetched rows rather than going back to the server.
 let allLogs = [];
 
-// Extension buckets lifted from fileIcon() in config.php, merged into the
-// categories an admin actually thinks in. Keeping the same extension lists means
-// a category here always covers what the icon in the hub implies.
-const FILE_TYPES = {
-  image:      ['jpg','jpeg','png','gif','webp','svg'],
-  video:      ['mp4','mkv','avi','mov','webm'],
-  audio:      ['mp3','wav','flac','ogg'],
-  document:   ['pdf','doc','docx','xls','xlsx','txt','md','log'],
-  archive:    ['zip','rar','7z','tar','gz'],
-  code:       ['php','js','ts','py','cs','html','css','json'],
-  executable: ['exe','msi','apk'],
-};
-
-// 'other' catches unlisted extensions and rows whose file column is not a
-// filename at all — a bulk delete records "3 file(s)".
-function fileCategory(name) {
-  const s   = String(name);
-  const dot = s.lastIndexOf('.');
-  if (dot < 1) return 'other';
-  const ext = s.slice(dot + 1).toLowerCase();
-  return Object.keys(FILE_TYPES).find(k => FILE_TYPES[k].includes(ext)) || 'other';
-}
-
+// Each row arrives with a `type` from fileCategory() in config.php, so the
+// buckets are defined once server-side and the hub's file filter and this one
+// can never drift apart.
 async function loadLogs() {
   const r = await api({ action: 'get_logs' });
   if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
@@ -346,7 +326,7 @@ function renderLogs() {
   const rows = allLogs.filter(l =>
        ipMatchesQuery(l.ip, ipQ)
     && (!act  || l.action === act)
-    && (!type || fileCategory(l.file) === type));
+    && (!type || l.type === type));
 
   const tbody = document.getElementById('logBody');
   document.getElementById('logCount').textContent =

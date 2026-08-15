@@ -402,31 +402,52 @@ function updateAggregate() {
 // than pages. The cost is that a very large hub ships every card up front; at
 // LAN scale that is a few hundred KB, and the point where it stops being a good
 // trade is also the point where this view needs a search box more than a pager.
-const PAGE_SIZE = 10;
-const pager     = document.getElementById('pager');
-let   page      = 1;
+const PAGE_SIZE  = 10;
+const pager      = document.getElementById('pager');
+const typeFilter = document.getElementById('typeFilter');
+let   page       = 1;
 
 const fileCards = () => [...document.querySelectorAll('#fileList .file-card')];
 
+// data-type is written by the server from fileCategory(), so the buckets are
+// defined once in config.php rather than mirrored here.
+const matchingCards = () => {
+  const want = typeFilter?.value || '';
+  return fileCards().filter(c => !want || c.dataset.type === want);
+};
+
 function renderPage(scroll = false) {
   if (!pager) return;
-  const cards = fileCards();
+  const all   = fileCards();
+  const cards = matchingCards();          // the filter decides what gets paginated
   const pages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
 
   page = Math.min(Math.max(1, page), pages);          // clamp after cards appear
   const start = (page - 1) * PAGE_SIZE;
 
-  cards.forEach((c, i) => {
-    c.style.display = (i >= start && i < start + PAGE_SIZE) ? '' : 'none';
-  });
+  const onPage = new Set(cards.slice(start, start + PAGE_SIZE));
+  all.forEach(c => { c.style.display = onPage.has(c) ? '' : 'none'; });
 
   // Nothing to steer while it all fits on one screen
   pager.innerHTML = cards.length > PAGE_SIZE
     ? pagerHTML(cards.length, pages, start)
     : '';
 
+  // A filter with no hits needs to say so — the pager is hidden at that size,
+  // so an empty list would otherwise look like a broken page.
+  document.getElementById('noMatch').style.display  = (all.length && !cards.length) ? '' : 'none';
+  document.getElementById('fileFilter').style.display = all.length ? '' : 'none';
+  document.getElementById('ffCount').textContent = !all.length ? ''
+    : cards.length === all.length ? `${all.length} file${all.length > 1 ? 's' : ''}`
+    : `${cards.length} of ${all.length}`;
+
   if (scroll) document.getElementById('fileList').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+typeFilter?.addEventListener('change', () => {
+  page = 1;                 // page 4 of the old set is meaningless in the new one
+  renderPage();
+});
 
 // Collapses a long run of pages to 1 … 4 5 6 … 20, so the control keeps its
 // width no matter how many files pile up.
@@ -476,7 +497,7 @@ function prependCard(f) {
 
   const ext = (f.name.split('.').pop() || 'FILE').toUpperCase();
   list.insertAdjacentHTML('afterbegin', `
-    <div class="file-card" id="fc-${f.id}">
+    <div class="file-card" id="fc-${f.id}" data-type="${esc(f.type || 'other')}">
       <div class="fc-icon">${f.icon}</div>
       <div class="fc-info">
         <div class="fc-name">${esc(f.name)}</div>

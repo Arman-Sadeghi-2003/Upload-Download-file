@@ -81,6 +81,22 @@ $defaultTab = (empty($files) && $canUpload) ? 'upload' : 'files';
   <?php endif; ?>
 
   <div class="panel <?= $defaultTab === 'files' ? 'active' : '' ?>" id="tab-files">
+    <!-- hub.js hides this while the hub is empty -->
+    <div class="file-filter" id="fileFilter">
+      <select id="typeFilter">
+        <option value="">All file types</option>
+        <option value="image">🖼️ Images</option>
+        <option value="video">🎬 Video</option>
+        <option value="audio">🎵 Audio</option>
+        <option value="document">📄 Documents</option>
+        <option value="archive">📦 Archives</option>
+        <option value="code">💻 Code</option>
+        <option value="executable">⚙️ Executables</option>
+        <option value="other">📁 Other</option>
+      </select>
+      <span class="ff-count" id="ffCount"></span>
+    </div>
+
     <div class="file-list" id="fileList">
       <?php if (empty($files)): ?>
         <div class="empty">No files uploaded yet.</div>
@@ -88,7 +104,7 @@ $defaultTab = (empty($files) && $canUpload) ? 'upload' : 'files';
           $ext    = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
           $canGet = checkIPAccess($clientIP, $f['id'])['allowed'];
       ?>
-        <div class="file-card" id="fc-<?= $f['id'] ?>">
+        <div class="file-card" id="fc-<?= $f['id'] ?>" data-type="<?= fileCategory($f['name']) ?>">
           <div class="fc-icon"><?= fileIcon($ext) ?></div>
           <div class="fc-info">
             <div class="fc-name" title="<?= htmlspecialchars($f['name']) ?>"><?= htmlspecialchars($f['name']) ?></div>
@@ -104,6 +120,8 @@ $defaultTab = (empty($files) && $canUpload) ? 'upload' : 'files';
         </div>
       <?php endforeach; endif; ?>
     </div>
+
+    <div class="empty" id="noMatch" style="display:none">No files of that type.</div>
 
     <!-- Filled by hub.js; stays empty while everything fits on one page -->
     <div class="pager" id="pager"></div>

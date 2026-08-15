@@ -60,4 +60,7 @@ echo json_encode(['success'=>true,'file'=>[
     'size' => formatBytes($f['size']),
     'date' => $entry['date'],
     'icon' => fileIcon($ext),
+    // So the card the client inserts obeys the file-type filter like the
+    // server-rendered ones, without hub.js needing its own copy of the buckets
+    'type' => fileCategory($origName),
 ]]);
