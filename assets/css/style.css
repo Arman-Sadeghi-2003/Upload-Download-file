@@ -317,6 +317,45 @@ header h1 { font-size: 1.3rem; }
 .restricted { font-size: .78rem; color: var(--red); }
 .empty { text-align: center; color: var(--muted); padding: 3rem 0; }
 
+/* ── Pagination ──────────────────────────────────────────────────────────── */
+.pager:empty { display: none; }
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .7rem;
+  margin-top: 1.1rem;
+}
+
+.pg-info { font-size: .76rem; color: var(--muted); }
+.pg-btns { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+
+.pg-num, .pg-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font: inherit;
+  font-size: .78rem;
+  min-width: 30px;
+  padding: .3rem .55rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: .15s;
+}
+.pg-num:hover:not(.active),
+.pg-step:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+
+.pg-num.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0d1117;
+  font-weight: 600;
+  cursor: default;
+}
+.pg-step:disabled { opacity: .4; cursor: not-allowed; }
+.pg-gap { color: var(--muted); font-size: .78rem; padding: 0 .15rem; }
+
 /* ── Toast ───────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed;

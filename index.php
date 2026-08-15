@@ -104,6 +104,9 @@ $defaultTab = (empty($files) && $canUpload) ? 'upload' : 'files';
         </div>
       <?php endforeach; endif; ?>
     </div>
+
+    <!-- Filled by hub.js; stays empty while everything fits on one page -->
+    <div class="pager" id="pager"></div>
   </div>
 </div>
 

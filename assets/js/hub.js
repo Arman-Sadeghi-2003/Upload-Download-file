@@ -395,6 +395,79 @@ function updateAggregate() {
   }
 }
 
+// ── Pagination ────────────────────────────────────────────────────────────────
+// Every card is already in the DOM, so paging is a matter of showing a slice
+// rather than fetching one. A ?page=2 round trip would reload the document and
+// abort any upload in flight — the same reason Upload and Files are tabs rather
+// than pages. The cost is that a very large hub ships every card up front; at
+// LAN scale that is a few hundred KB, and the point where it stops being a good
+// trade is also the point where this view needs a search box more than a pager.
+const PAGE_SIZE = 10;
+const pager     = document.getElementById('pager');
+let   page      = 1;
+
+const fileCards = () => [...document.querySelectorAll('#fileList .file-card')];
+
+function renderPage(scroll = false) {
+  if (!pager) return;
+  const cards = fileCards();
+  const pages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
+
+  page = Math.min(Math.max(1, page), pages);          // clamp after cards appear
+  const start = (page - 1) * PAGE_SIZE;
+
+  cards.forEach((c, i) => {
+    c.style.display = (i >= start && i < start + PAGE_SIZE) ? '' : 'none';
+  });
+
+  // Nothing to steer while it all fits on one screen
+  pager.innerHTML = cards.length > PAGE_SIZE
+    ? pagerHTML(cards.length, pages, start)
+    : '';
+
+  if (scroll) document.getElementById('fileList').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Collapses a long run of pages to 1 … 4 5 6 … 20, so the control keeps its
+// width no matter how many files pile up.
+function pageNumbers(cur, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const lo = Math.max(2, cur - 1), hi = Math.min(total - 1, cur + 1);
+  return [
+    1,
+    ...(lo > 2 ? ['…'] : []),
+    ...Array.from({ length: hi - lo + 1 }, (_, i) => lo + i),
+    ...(hi < total - 1 ? ['…'] : []),
+    total,
+  ];
+}
+
+function pagerHTML(count, pages, start) {
+  const nums = pageNumbers(page, pages).map(n =>
+    n === '…'
+      ? '<span class="pg-gap">…</span>'
+      : `<button class="pg-num${n === page ? ' active' : ''}" data-page="${n}">${n}</button>`
+  ).join('');
+
+  return `
+    <div class="pg-info">Showing ${start + 1}–${Math.min(start + PAGE_SIZE, count)} of ${count}</div>
+    <div class="pg-btns">
+      <button class="pg-step" data-page="${page - 1}" ${page === 1 ? 'disabled' : ''}>‹ Prev</button>
+      ${nums}
+      <button class="pg-step" data-page="${page + 1}" ${page === pages ? 'disabled' : ''}>Next ›</button>
+    </div>`;
+}
+
+// Delegated: the buttons are rebuilt on every render
+pager?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-page]');
+  if (!btn || btn.disabled) return;
+  page = +btn.dataset.page;
+  renderPage(true);
+});
+
+renderPage();
+
 // ── Prepend new file card ─────────────────────────────────────────────────────
 function prependCard(f) {
   const list  = document.getElementById('fileList');
@@ -417,4 +490,10 @@ function prependCard(f) {
   // Server-rendered count — without this a batch of 20 leaves it reading "(0)"
   const cnt = document.getElementById('fileCount');
   if (cnt) cnt.textContent = (parseInt(cnt.textContent, 10) || 0) + 1;
+
+  // The new card carries no display style, so without this it would show
+  // through regardless of which page is open. Deliberately stays on the
+  // current page rather than jumping to page 1 — a batch uploading in the
+  // background should not yank the view out from under someone browsing.
+  renderPage();
 }
