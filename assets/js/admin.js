@@ -164,16 +164,16 @@ function ip2long(ip) {
   return n;
 }
 
-// Mirrors ipMatchesRule() in config.php for the CIDR and wildcard forms, so this
-// box accepts the same syntax as every other IP field in the panel. Anything
-// without / or * falls back to substring, which is what lets a half-typed
-// address narrow the list as you go.
-function uploaderMatches(uploader, q) {
+// Mirrors ipMatchesRule() in config.php for the CIDR and wildcard forms, so every
+// IP box in the panel — the File Manager filter and the log filter — accepts the
+// same syntax as the rule fields. Anything without / or * falls back to
+// substring, which is what lets a half-typed address narrow a list as you go.
+function ipMatchesQuery(ip, q) {
   if (!q) return true;
 
   if (q.includes('/')) {
     const [subnet, bits] = q.split('/');
-    const n = ip2long(uploader), s = ip2long(subnet), b = parseInt(bits, 10);
+    const n = ip2long(ip), s = ip2long(subnet), b = parseInt(bits, 10);
     if (n === null || s === null || !(b >= 0 && b <= 32)) return false;
     const mask = b === 0 ? 0 : (-1 << (32 - b)) >>> 0;
     return ((n & mask) >>> 0) === ((s & mask) >>> 0);
@@ -181,16 +181,16 @@ function uploaderMatches(uploader, q) {
 
   if (q.includes('*')) {
     const pat = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '[0-9]{1,3}');
-    return new RegExp('^' + pat + '$').test(uploader);
+    return new RegExp('^' + pat + '$').test(ip);
   }
 
-  return uploader.toLowerCase().includes(q.toLowerCase());
+  return ip.toLowerCase().includes(q.toLowerCase());
 }
 
 function applyMgrFilter() {
   const q = mgrSearch.value.trim();
   mgrRows().forEach(row => {
-    const hit = uploaderMatches(row.dataset.uploader, q);
+    const hit = ipMatchesQuery(row.dataset.uploader, q);
     row.style.display = hit ? '' : 'none';
     // A row that scrolls out of the filter must lose its tick too. Otherwise a
     // selection made under one IP would be carried into a delete run under
@@ -291,21 +291,98 @@ if (mgrList) {
 }
 
 // ── Logs ──────────────────────────────────────────────────────────────────────
+// get_logs already returns the whole ring buffer (1000 entries at most), so the
+// filters run over the fetched rows rather than going back to the server.
+let allLogs = [];
+
+// Extension buckets lifted from fileIcon() in config.php, merged into the
+// categories an admin actually thinks in. Keeping the same extension lists means
+// a category here always covers what the icon in the hub implies.
+const FILE_TYPES = {
+  image:      ['jpg','jpeg','png','gif','webp','svg'],
+  video:      ['mp4','mkv','avi','mov','webm'],
+  audio:      ['mp3','wav','flac','ogg'],
+  document:   ['pdf','doc','docx','xls','xlsx','txt','md','log'],
+  archive:    ['zip','rar','7z','tar','gz'],
+  code:       ['php','js','ts','py','cs','html','css','json'],
+  executable: ['exe','msi','apk'],
+};
+
+// 'other' catches unlisted extensions and rows whose file column is not a
+// filename at all — a bulk delete records "3 file(s)".
+function fileCategory(name) {
+  const s   = String(name);
+  const dot = s.lastIndexOf('.');
+  if (dot < 1) return 'other';
+  const ext = s.slice(dot + 1).toLowerCase();
+  return Object.keys(FILE_TYPES).find(k => FILE_TYPES[k].includes(ext)) || 'other';
+}
+
 async function loadLogs() {
   const r = await api({ action: 'get_logs' });
   if (!r.success) { showToast('Error: ' + r.error, 'err'); return; }
+  allLogs = r.logs;
+  syncActionOptions();
+  renderLogs();
+}
+
+// Built from the data instead of a hardcoded list, so an action string added
+// server-side later appears here on its own. The current selection survives a
+// refresh as long as it still exists in the new data.
+function syncActionOptions() {
+  const sel     = document.getElementById('logAction');
+  const keep    = sel.value;
+  const actions = [...new Set(allLogs.map(l => l.action))].sort();
+  sel.innerHTML = '<option value="">All actions</option>' +
+    actions.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
+  sel.value = actions.includes(keep) ? keep : '';
+}
+
+function renderLogs() {
+  const ipQ  = document.getElementById('logIP').value.trim();
+  const act  = document.getElementById('logAction').value;
+  const type = document.getElementById('logType').value;
+
+  const rows = allLogs.filter(l =>
+       ipMatchesQuery(l.ip, ipQ)
+    && (!act  || l.action === act)
+    && (!type || fileCategory(l.file) === type));
+
   const tbody = document.getElementById('logBody');
-  if (!r.logs.length) { tbody.innerHTML = '<tr><td colspan="5" class="log-empty">No logs yet.</td></tr>'; return; }
-  tbody.innerHTML = r.logs.map(l =>
+  document.getElementById('logCount').textContent =
+    allLogs.length ? `${rows.length} of ${allLogs.length}` : '';
+
+  if (!allLogs.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="log-empty">No logs yet.</td></tr>';
+    return;
+  }
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="log-empty">No entries match these filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(l =>
     `<tr>
       <td>${esc(l.t)}</td>
       <td>${esc(l.ip)}</td>
       <td>${esc(l.action)}</td>
       <td>${esc(l.file)}</td>
-      <td class="${l.ok ? 'log-ok' : 'log-deny'}">${l.ok ? '✅' : '🚫'}</td>
+      <td class="${l.ok ? 'log-ok' : 'log-den'}">${l.ok ? '✅' : '🚫'}</td>
     </tr>`
   ).join('');
 }
+
+function clearLogFilters() {
+  document.getElementById('logIP').value     = '';
+  document.getElementById('logAction').value = '';
+  document.getElementById('logType').value   = '';
+  renderLogs();
+}
+
+['logIP', 'logAction', 'logType'].forEach(id => {
+  const el = document.getElementById(id);
+  el?.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', renderLogs);
+});
 
 // ── Max Upload Size ───────────────────────────────────────────────────────────
 async function loadMaxUpload() {

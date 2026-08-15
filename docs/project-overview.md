@@ -178,6 +178,8 @@ Changing it affects **new uploads only**. Files already in the hub keep the rule
 
 `api.php` actions: `set_mode`, `add_global`, `remove_global`, `add_file_rule`, `remove_file_rule`, `add_visible_to`, `remove_visible_to`, `add_default_ip`, `remove_default_ip`, `delete_file`, `delete_files`, `get_logs`, `get_settings`, `set_max_file_size`.
 
+**Access Logs.** `get_logs` returns the whole ring buffer in one response, so the tab's three filters — uploader IP, action, and file-type category — run client-side over the fetched rows and apply as you type. The action list is built from the data rather than hardcoded, so a new action string added to `logAccess()` appears in the dropdown on its own. File-type categories reuse the extension lists from `fileIcon()`; anything unlisted, extensionless, or not a filename at all (a bulk delete records `3 file(s)`) falls under *Other*.
+
 **File Manager.** Beyond the per-file 🗑, the tab filters the list by *uploader IP* and deletes a whole selection at once. The filter accepts the same exact / CIDR / wildcard forms as every other IP field (a bare partial like `192.168.1` also matches as a substring, and `public` matches anonymous uploads), and `delete_files` takes the chosen IDs as a JSON array, removing blobs, metadata and per-file rules inside one `withLock()`. Changing the filter clears the current selection, so files hidden by a filter can never be caught in a later delete.
 
 **Assets.** `index.php` and `admin.php` append `?v=<filemtime>` to their CSS and JS tags, so an edited asset gets a new URL and browsers can't serve a stale copy.

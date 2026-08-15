@@ -255,6 +255,30 @@ header h1 { font-size: 1.3rem; }
   align-items: center;
   border-bottom: 1px solid var(--border);
 }
+.log-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .6rem;
+  padding: .8rem 1.2rem;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.log-filters input,
+.log-filters select {
+  padding: .35rem .6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: .8rem;
+}
+.log-filters input { flex: 1; min-width: 160px; }
+.log-filters input:focus,
+.log-filters select:focus { border-color: var(--accent); outline: none; }
+.log-count { font-size: .78rem; color: var(--muted); margin-left: auto; }
+
 .log-scroll { overflow-x: auto; }
 .log-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .log-table th {

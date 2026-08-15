@@ -283,6 +283,29 @@ $mode     = $rules['mode'] ?? 'blacklist';
         <span class="card-title">Recent Access Logs</span>
         <button class="btn btn-primary btn-sm" onclick="loadLogs()">Refresh</button>
       </div>
+
+      <!-- Filters run over the already-fetched rows, so they apply instantly.
+           The action list is filled from the data by admin.js. -->
+      <div class="log-filters">
+        <input type="text" id="logIP" placeholder="Filter by IP — exact, CIDR or wildcard…" autocomplete="off">
+        <select id="logAction">
+          <option value="">All actions</option>
+        </select>
+        <select id="logType">
+          <option value="">All file types</option>
+          <option value="image">🖼️ Images</option>
+          <option value="video">🎬 Video</option>
+          <option value="audio">🎵 Audio</option>
+          <option value="document">📄 Documents</option>
+          <option value="archive">📦 Archives</option>
+          <option value="code">💻 Code</option>
+          <option value="executable">⚙️ Executables</option>
+          <option value="other">📁 Other</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="clearLogFilters()">Clear</button>
+        <span class="log-count" id="logCount"></span>
+      </div>
+
       <div class="log-scroll">
         <table class="log-table">
           <thead><tr><th>Time</th><th>IP</th><th>Action</th><th>File</th><th>Result</th></tr></thead>
